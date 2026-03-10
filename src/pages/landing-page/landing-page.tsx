@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { Shield, Lock, Users, Brain, ChevronRight, Heart, Thermometer, Syringe, Stethoscope, ArrowLeft, Star, KeyRound } from "lucide-react";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { RoomOfKnowledge } from "./room-of-knowledge";
-import { RoomOfAbstracts } from "./room-of-abstracts";
-import { RoomOfAnalytics } from "./room-of-analytics";
-import { RoomOfSciencebattle } from "./room-of-sciencebattle";
-import { FinalStage } from "./final-stage";
-import { AdminDashboard } from "./admin-dashboard";
+import { ImageWithFallback } from "./ImageWithFallback";
+import { RoomOfKnowledge } from "@/pages/room-of-knowledge/room-of-knowledge";
+import { RoomOfAbstracts } from "@/pages/room-of-abstracts/room-of-abstracts";
+import { RoomOfAnalytics } from "@/pages/room-of-analytics/room-of-analytics";
+import { RoomOfSciencebattle } from "@/pages/room-of-sciencebattle/room-of-sciencebattle";
+import { FinalStage } from "@/pages/final-stage/final-stage";
+import { AdminDashboard } from "@/pages/admin-dashboard/admin-dashboard";
 
 const missions = [
   {

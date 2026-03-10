@@ -13,7 +13,6 @@ import {
   Search,
   Crown,
   LogOut,
-  BarChart3,
   Bell,
   Timer,
   AlertTriangle,
