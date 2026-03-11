@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Shield, Lock, Users, Brain, ChevronRight, Heart, Thermometer, Syringe, Stethoscope, ArrowLeft, Star, KeyRound } from "lucide-react";
+import { Shield, Lock, Users, Brain, ChevronRight, ArrowLeft, Star, KeyRound } from "lucide-react";
 import { ImageWithFallback } from "./ImageWithFallback";
+import { MISSIONS } from "./landing-page.data";
+import type { LandingMission } from "./landing-page.data";
 import { RoomOfKnowledge } from "@/pages/room-of-knowledge/room-of-knowledge";
 import { RoomOfAbstracts } from "@/pages/room-of-abstracts/room-of-abstracts";
 import { RoomOfAnalytics } from "@/pages/room-of-analytics/room-of-analytics";
@@ -9,85 +11,15 @@ import { RoomOfSciencebattle } from "@/pages/room-of-sciencebattle/room-of-scien
 import { FinalStage } from "@/pages/final-stage/final-stage";
 import { AdminDashboard } from "@/pages/admin-dashboard/admin-dashboard";
 
-const missions = [
-  {
-    id: 1,
-    title: "The Silent Symptom",
-    subtitle: "MISSION 01",
-    desc: "A patient presents with unexplained fatigue and abnormal labs. Analyze the evidence trail to uncover the hidden diagnosis before time runs out.",
-    icon: Stethoscope,
-    difficulty: "Beginner",
-    xp: 1000,
-    color: "teal",
-    borderColor: "border-teal-500/40",
-    bgColor: "bg-teal-500/10",
-    textColor: "text-teal-400",
-  },
-  {
-    id: 2,
-    title: "The Medication Maze",
-    subtitle: "MISSION 02",
-    desc: "A critical medication error has been flagged. Navigate conflicting drug interactions and research evidence to determine the safest treatment path.",
-    icon: Syringe,
-    difficulty: "Intermediate",
-    xp: 1000,
-    color: "orange",
-    borderColor: "border-orange-500/40",
-    bgColor: "bg-orange-500/10",
-    textColor: "text-orange-400",
-  },
-  {
-    id: 3,
-    title: "Code Blue Protocol",
-    subtitle: "MISSION 03",
-    desc: "A rapid response situation unfolds. Use evidence-based resuscitation guidelines and critical thinking to stabilize the patient in this high-stakes scenario.",
-    icon: Heart,
-    difficulty: "Advanced",
-    xp: 1000,
-    color: "red",
-    borderColor: "border-red-500/40",
-    bgColor: "bg-red-500/10",
-    textColor: "text-red-400",
-  },
-  {
-    id: 4,
-    title: "The Infection Detective",
-    subtitle: "MISSION 04",
-    desc: "A mysterious infection is spreading through the ward. Trace the source using epidemiological evidence and implement evidence-based infection control measures.",
-    icon: Thermometer,
-    difficulty: "Intermediate",
-    xp: 1000,
-    color: "green",
-    borderColor: "border-green-500/40",
-    bgColor: "bg-green-500/10",
-    textColor: "text-green-400",
-  },
-  {
-    id: 5,
-    title: "The Chronic Conundrum",
-    subtitle: "MISSION 05",
-    desc: "A complex chronic disease patient requires a comprehensive care plan. Synthesize multiple research studies to design an evidence-based management strategy.",
-    icon: Brain,
-    difficulty: "Expert",
-    xp: 1000,
-    color: "purple",
-    borderColor: "border-purple-500/40",
-    bgColor: "bg-purple-500/10",
-    textColor: "text-purple-400",
-  },
-];
-
-type Mission = (typeof missions)[number];
-
 export function LandingPage() {
   const [showLogin, setShowLogin] = useState(false);
   const [showMissions, setShowMissions] = useState(false);
-  const [activeMission, setActiveMission] = useState<Mission | null>(null);
+  const [activeMission, setActiveMission] = useState<LandingMission | null>(null);
   const [currentRoom, setCurrentRoom] = useState<number>(1);
-  const [pendingMission, setPendingMission] = useState<Mission | null>(null);
+  const [pendingMission, setPendingMission] = useState<LandingMission | null>(null);
   const [missionPassword, setMissionPassword] = useState("");
   const [passwordError, setPasswordError] = useState(false);
-  const [email, setEmail] = useState("");
+  const [string, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showAdmin, setShowAdmin] = useState(false);
 
@@ -95,7 +27,7 @@ export function LandingPage() {
     e.preventDefault();
     setShowLogin(false);
     setShowAdmin(true);
-    setEmail("");
+    setUsername("");
     setPassword("");
   };
 
@@ -233,7 +165,7 @@ export function LandingPage() {
 
             {/* Mission Cards */}
             <div className="max-w-4xl mx-auto space-y-4 pb-12">
-              {missions.map((mission, index) => (
+              {MISSIONS.map((mission, index) => (
                 <motion.div
                   key={mission.id}
                   initial={{ opacity: 0, x: -30 }}
@@ -258,9 +190,6 @@ export function LandingPage() {
                       <div className="flex items-center gap-3 mb-1">
                         <span className={`font-[JetBrains_Mono,monospace] text-xs ${mission.textColor}`}>
                           {mission.subtitle}
-                        </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${mission.bgColor} ${mission.textColor}`}>
-                          {mission.difficulty}
                         </span>
                       </div>
                       <h3 className="text-white text-lg mb-1">{mission.title}</h3>
@@ -439,18 +368,18 @@ export function LandingPage() {
                 <Lock className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-white">Agent Authentication</h2>
+                <h2 className="text-white">Admin Authentication</h2>
                 <p className="text-teal-400 font-[JetBrains_Mono,monospace] text-xs">SECURE ACCESS PORTAL</p>
               </div>
             </div>
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="text-gray-400 text-sm mb-1 block">Student Email</label>
+                <label className="text-gray-400 text-sm mb-1 block">Admin Username</label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="agent@nursing.edu"
+                  type="string"
+                  value={string}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="username"
                   className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
                 />
               </div>
@@ -484,3 +413,4 @@ export function LandingPage() {
     </div>
   );
 }
+

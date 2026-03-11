@@ -12,51 +12,8 @@ import {
   Printer,
   X,
 } from "lucide-react";
-
-interface Mission {
-  id: number;
-  title: string;
-  subtitle: string;
-  textColor: string;
-  bgColor: string;
-}
-
-interface FinalStageProps {
-  mission: Mission;
-  onBack: () => void;
-}
-
-const ANSWER = "FLORENCE";
-
-const COLLECTED_LETTERS = [
-  { letter: "E", room: 1, roomName: "Room of Knowledge" },
-  { letter: "C", room: 1, roomName: "Room of Knowledge" },
-  { letter: "F", room: 2, roomName: "Room of Abstracts" },
-  { letter: "O", room: 2, roomName: "Room of Abstracts" },
-  { letter: "L", room: 3, roomName: "Room of Analytics" },
-  { letter: "R", room: 3, roomName: "Room of Analytics" },
-  { letter: "N", room: 4, roomName: "Room of Sciencebattle" },
-  { letter: "E", room: 4, roomName: "Room of Sciencebattle" },
-];
-
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
-// Format today's date nicely
-function formatDate(): string {
-  const d = new Date();
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
+import { ANSWER, COLLECTED_LETTERS, formatDate, shuffleArray } from "./final-stage.data";
+import type { FinalStageProps } from "./final-stage.data";
 
 export function FinalStage({ mission, onBack }: FinalStageProps) {
   const [shuffledLetters, setShuffledLetters] = useState<
@@ -1020,3 +977,4 @@ export function FinalStage({ mission, onBack }: FinalStageProps) {
     </div>
   );
 }
+
