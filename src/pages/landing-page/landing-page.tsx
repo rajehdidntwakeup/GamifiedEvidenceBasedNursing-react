@@ -1,39 +1,89 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Shield, Lock, Users, Brain, ChevronRight, ArrowLeft, Star, KeyRound } from "lucide-react";
+import { Shield, Lock, Users, Brain, ChevronRight } from "lucide-react";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { MISSIONS } from "./landing-page.data";
+import { MissionGrid } from "./components/MissionGrid";
+import { MissionCard } from "./components/MissionCard";
+import { PasswordGate } from "./components/PasswordGate";
+import { LoginModal } from "./components/LoginModal";
+import { RoomRouter } from "./components/RoomRouter";
+import { useMissionState } from "./hooks/useMissionState";
 import type { LandingMission } from "./landing-page.data";
-import { RoomOfKnowledge } from "@/pages/room-of-knowledge/room-of-knowledge";
-import { RoomOfAbstracts } from "@/pages/room-of-abstracts/room-of-abstracts";
-import { RoomOfAnalytics } from "@/pages/room-of-analytics/room-of-analytics";
-import { RoomOfSciencebattle } from "@/pages/room-of-sciencebattle/room-of-sciencebattle";
-import { FinalStage } from "@/pages/final-stage/final-stage";
-import { AdminDashboard } from "@/pages/admin-dashboard/admin-dashboard";
 
 export function LandingPage() {
-  const [showLogin, setShowLogin] = useState(false);
-  const [showMissions, setShowMissions] = useState(false);
-  const [activeMission, setActiveMission] = useState<LandingMission | null>(null);
-  const [currentRoom, setCurrentRoom] = useState<number>(1);
-  const [pendingMission, setPendingMission] = useState<LandingMission | null>(null);
-  const [missionPassword, setMissionPassword] = useState("");
-  const [passwordError, setPasswordError] = useState(false);
-  const [string, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showAdmin, setShowAdmin] = useState(false);
+  const [state, actions] = useMissionState();
+  const [isClient, setIsClient] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowLogin(false);
-    setShowAdmin(true);
-    setUsername("");
-    setPassword("");
-  };
+  // Hydration fix
+  useState(() => {
+    setIsClient(true);
+  });
+
+  // Show active mission room
+  if (state.activeMission) {
+    return (
+      <RoomRouter
+        currentRoom={state.currentRoom}
+        showAdmin={state.showAdmin}
+      />
+    );
+  }
+
+  // Show mission grid
+  if (state.showMissions) {
+    return (
+      <MissionGrid
+        onBack={() => actions.setShowMissions(false)}
+        onSelectMission={actions.handleMissionSelect}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#0f2a2e] relative overflow-hidden font-[Inter,sans-serif]">
-      {/* Background image overlay */}
+    <>
+      <div className="min-h-screen bg-[#0f2a2e] relative overflow-hidden font-[Inter,sans-serif]">
+        {/* Background */}
+        <Background />
+
+        {/* Navigation */}
+        <Navigation onLoginClick={() => actions.setShowLogin(true)} />
+
+        {/* Hero Section */}
+        <HeroSection onBeginMission={() => actions.setShowMissions(true)} />
+      </div>
+
+      {/* Modals */}
+      <LoginModal
+        isOpen={state.showLogin}
+        onClose={() => actions.setShowLogin(false)}
+        username={state.username}
+        password={state.password}
+        onUsernameChange={actions.setUsername}
+        onPasswordChange={actions.setPassword}
+        onSubmit={actions.handleLogin}
+      />
+
+      <PasswordGate
+        isOpen={!!state.pendingMission}
+        onClose={() => {
+          actions.setPendingMission(null);
+          actions.setMissionPassword("");
+          actions.setPasswordError(false);
+        }}
+        password={state.missionPassword}
+        onPasswordChange={actions.setMissionPassword}
+        onSubmit={actions.handlePasswordSubmit}
+        error={state.passwordError}
+      />
+    </>
+  );
+}
+
+// Sub-components
+function Background() {
+  return (
+    <>
       <div className="absolute inset-0 z-0">
         <ImageWithFallback
           src="https://images.unsplash.com/photo-1686916058141-a04d7f501ba8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3NwaXRhbCUyMGNvcnJpZG9yJTIwZGFyayUyMG1vb2R5fGVufDF8fHx8MTc3MjQ2MjUzMHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
@@ -41,376 +91,108 @@ export function LandingPage() {
           className="w-full h-full object-cover opacity-20"
         />
       </div>
-
-      {/* Animated grid overlay */}
       <div className="absolute inset-0 z-0 opacity-10"
         style={{
           backgroundImage: "linear-gradient(rgba(20,184,166,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(20,184,166,0.3) 1px, transparent 1px)",
           backgroundSize: "60px 60px"
         }}
       />
+    </>
+  );
+}
 
-      {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-teal-500 flex items-center justify-center">
-            <Shield className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-white text-xl tracking-tight font-[Inter,sans-serif]">EBNA <span className="text-teal-400">Escape Room</span></span>
+function Navigation({ onLoginClick }: { onLoginClick: () => void }) {
+  return (
+    <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-teal-500 flex items-center justify-center">
+          <Shield className="w-6 h-6 text-white" />
         </div>
-        <button
-          onClick={() => setShowLogin(true)}
-          className="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-lg transition-colors"
-        >
-          Admin Login
-        </button>
-      </nav>
-
-      {/* Hero */}
-      <div className="relative z-10 flex flex-col items-center justify-center px-6 pt-16 pb-24 md:pt-24 md:pb-32">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center max-w-4xl"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300 mb-8">
-            <Lock className="w-4 h-4" />
-            <span className="font-[JetBrains_Mono,monospace] text-sm">CLASSIFIED // MISSION BRIEFING</span>
-          </div>
-
-          <h1 className="text-4xl md:text-6xl text-white mb-6 tracking-tight">
-            Crack the Case.<br />
-            <span className="text-teal-400">Master the Evidence.</span>
-          </h1>
-
-          <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-10">
-            Enter immersive clinical escape rooms where evidence-based nursing practice meets puzzle-solving. 
-            Analyze research, decode patient mysteries, and prove your critical thinking skills.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
-            <button
-              onClick={() => setShowMissions(true)}
-              className="px-8 py-4 bg-teal-500 hover:bg-teal-400 text-white rounded-xl flex items-center gap-2 transition-all hover:scale-105"
-            >
-              Begin Your Mission
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Feature cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20 max-w-5xl w-full"
-        >
-          {[
-            { icon: Brain, title: "Clinical Puzzles", desc: "Solve PICO-based challenges and interpret research studies to unlock clues", color: "text-teal-400" },
-            { icon: Users, title: "Team Collaboration", desc: "Work with peers in real-time to analyze evidence and make clinical decisions", color: "text-orange-400" },
-            { icon: Shield, title: "Earn Badges", desc: "Collect Evidence Hunter, Critical Thinker, and Team Player achievements", color: "text-green-400" },
-          ].map((f, i) => (
-            <div key={i} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:border-teal-500/40 transition-colors">
-              <f.icon className={`w-8 h-8 ${f.color} mb-4`} />
-              <h3 className="text-white mb-2">{f.title}</h3>
-              <p className="text-gray-400 text-sm">{f.desc}</p>
-            </div>
-          ))}
-        </motion.div>
+        <span className="text-white text-xl tracking-tight font-[Inter,sans-serif]">
+          EBNA <span className="text-teal-400">Escape Room</span>
+        </span>
       </div>
+      <button
+        onClick={onLoginClick}
+        className="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-lg transition-colors"
+      >
+        Admin Login
+      </button>
+    </nav>
+  );
+}
 
-      {/* Mission Selection Screen */}
-      {showMissions && (
-        <div className="fixed inset-0 z-50 bg-[#0a1f22]/95 backdrop-blur-md overflow-y-auto">
-          {/* Grid overlay */}
-          <div className="absolute inset-0 z-0 opacity-5"
-            style={{
-              backgroundImage: "linear-gradient(rgba(20,184,166,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(20,184,166,0.3) 1px, transparent 1px)",
-              backgroundSize: "60px 60px"
-            }}
-          />
+function HeroSection({ onBeginMission }: { onBeginMission: () => void }) {
+  const features = [
+    { icon: Brain, title: "Clinical Puzzles", desc: "Solve PICO-based challenges and interpret research studies to unlock clues", color: "text-teal-400" },
+    { icon: Users, title: "Team Collaboration", desc: "Work with peers in real-time to analyze evidence and make clinical decisions", color: "text-orange-400" },
+    { icon: Shield, title: "Earn Badges", desc: "Collect Evidence Hunter, Critical Thinker, and Team Player achievements", color: "text-green-400" },
+  ];
 
-          <div className="relative z-10 px-6 md:px-12 py-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-10">
-              <button
-                onClick={() => setShowMissions(false)}
-                className="flex items-center gap-2 text-gray-400 hover:text-teal-400 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span>Back to Base</span>
-              </button>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300">
-                <Lock className="w-4 h-4" />
-                <span className="font-[JetBrains_Mono,monospace] text-sm">SELECT YOUR MISSION</span>
-              </div>
-            </div>
-
-            {/* Title */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-              className="text-center mb-12"
-            >
-              <h2 className="text-3xl md:text-4xl text-white mb-3 tracking-tight">
-                Choose Your <span className="text-teal-400">Mission</span>
-              </h2>
-              <p className="text-gray-400 max-w-xl mx-auto">
-                Each mission is a unique clinical escape room. Solve evidence-based puzzles, earn XP, and unlock achievements.
-              </p>
-            </motion.div>
-
-            {/* Mission Cards */}
-            <div className="max-w-4xl mx-auto space-y-4 pb-12">
-              {MISSIONS.map((mission, index) => (
-                <motion.div
-                  key={mission.id}
-                  initial={{ opacity: 0, x: -30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.08 }}
-                  className={`group bg-white/5 backdrop-blur-sm border border-white/10 hover:${mission.borderColor} rounded-2xl p-6 cursor-pointer transition-all hover:bg-white/[0.07]`}
-                  onClick={() => {
-                    setPendingMission(mission);
-                    setShowMissions(false);
-                    setMissionPassword("");
-                    setPasswordError(false);
-                  }}
-                >
-                  <div className="flex flex-col md:flex-row md:items-center gap-5">
-                    {/* Icon */}
-                    <div className={`w-14 h-14 rounded-xl ${mission.bgColor} flex items-center justify-center shrink-0`}>
-                      <mission.icon className={`w-7 h-7 ${mission.textColor}`} />
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
-                        <span className={`font-[JetBrains_Mono,monospace] text-xs ${mission.textColor}`}>
-                          {mission.subtitle}
-                        </span>
-                      </div>
-                      <h3 className="text-white text-lg mb-1">{mission.title}</h3>
-                      <p className="text-gray-500 text-sm">{mission.desc}</p>
-                    </div>
-
-                    {/* Meta + Action */}
-                    <div className="flex md:flex-col items-center md:items-end gap-3 md:gap-2 shrink-0">
-                      <div className="flex items-center gap-4 text-gray-500 text-sm">
-                        <span className="flex items-center gap-1">
-                          <Star className="w-4 h-4 text-yellow-500" />
-                          {mission.xp} XP
-                        </span>
-                      </div>
-                      <div className={`flex items-center gap-1 ${mission.textColor} opacity-0 group-hover:opacity-100 transition-opacity`}>
-                        <span className="text-sm">Enter</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
+  return (
+    <div className="relative z-10 flex flex-col items-center justify-center px-6 pt-16 pb-24 md:pt-24 md:pb-32">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="text-center max-w-4xl"
+      >
+        {/* Badge */}
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300 mb-8">
+          <Lock className="w-4 h-4" />
+          <span className="font-[JetBrains_Mono,monospace] text-sm">CLASSIFIED // MISSION BRIEFING</span>
         </div>
-      )}
 
-      {/* Mission Password Gate */}
-      {pendingMission && !activeMission && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-[#0f2a2e] border border-teal-500/30 rounded-2xl p-8 w-full max-w-md relative"
+        {/* Title */}
+        <h1 className="text-4xl md:text-6xl text-white mb-6 tracking-tight">
+          Crack the Case.<br />
+          <span className="text-teal-400">Master the Evidence.</span>
+        </h1>
+
+        {/* Description */}
+        <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-10">
+          Enter immersive clinical escape rooms where evidence-based nursing practice meets puzzle-solving.
+          Analyze research, decode patient mysteries, and prove your critical thinking skills.
+        </p>
+
+        {/* CTA */}
+        <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
+          <button
+            onClick={onBeginMission}
+            className="px-8 py-4 bg-teal-500 hover:bg-teal-400 text-white rounded-xl flex items-center gap-2 transition-all hover:scale-105"
           >
-            <button
-              onClick={() => {
-                setPendingMission(null);
-                setShowMissions(true);
-              }}
-              className="absolute top-4 right-4 text-gray-500 hover:text-white text-xl"
-            >
-              &times;
-            </button>
-            <div className="flex items-center gap-3 mb-6">
-              <div className={`w-10 h-10 rounded-lg ${pendingMission.bgColor} flex items-center justify-center`}>
-                <KeyRound className={`w-5 h-5 ${pendingMission.textColor}`} />
-              </div>
-              <div>
-                <h2 className="text-white">{pendingMission.title}</h2>
-                <p className={`${pendingMission.textColor} font-[JetBrains_Mono,monospace] text-xs`}>ROOM ACCESS CODE REQUIRED</p>
-              </div>
-            </div>
-            <p className="text-gray-400 text-sm mb-5">
-              Enter the room password provided by your instructor to begin the mission.
-            </p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (missionPassword.trim().length > 0) {
-                  setActiveMission(pendingMission);
-                  setPendingMission(null);
-                  setMissionPassword("");
-                  setPasswordError(false);
-                } else {
-                  setPasswordError(true);
-                }
-              }}
-              className="space-y-4"
-            >
-              <div>
-                <label className="text-gray-400 text-sm mb-1 block">Room Password</label>
-                <input
-                  type="password"
-                  value={missionPassword}
-                  onChange={(e) => {
-                    setMissionPassword(e.target.value);
-                    setPasswordError(false);
-                  }}
-                  placeholder="Enter room password"
-                  autoFocus
-                  className={`w-full px-4 py-3 bg-white/5 border ${passwordError ? "border-red-500/60" : "border-white/10"} rounded-lg text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none`}
-                />
-                {passwordError && (
-                  <p className="text-red-400 text-xs mt-1.5">Please enter the room password to continue.</p>
-                )}
-              </div>
-              <button
-                type="submit"
-                className={`w-full py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-lg transition-colors flex items-center justify-center gap-2`}
-              >
-                Enter Room
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </form>
-            <p className="text-gray-600 text-xs mt-4 text-center">Ask your instructor for the access code</p>
-          </motion.div>
+            Begin Your Mission
+            <ChevronRight className="w-5 h-5" />
+          </button>
         </div>
-      )}
+      </motion.div>
 
-      {/* Room of Knowledge */}
-      {activeMission && currentRoom === 1 && (
-        <RoomOfKnowledge
-          mission={activeMission}
-          onBack={() => {
-            setActiveMission(null);
-            setCurrentRoom(1);
-            setShowMissions(true);
-          }}
-          onProceedToRoom2={() => setCurrentRoom(2)}
-        />
-      )}
-
-      {/* Room of Abstracts */}
-      {activeMission && currentRoom === 2 && (
-        <RoomOfAbstracts
-          mission={activeMission}
-          onBack={() => {
-            setActiveMission(null);
-            setCurrentRoom(1);
-            setShowMissions(true);
-          }}
-          onProceedToRoom3={() => setCurrentRoom(3)}
-        />
-      )}
-
-      {/* Room of Analytics */}
-      {activeMission && currentRoom === 3 && (
-        <RoomOfAnalytics
-          mission={activeMission}
-          onBack={() => {
-            setActiveMission(null);
-            setCurrentRoom(1);
-            setShowMissions(true);
-          }}
-          onProceedToRoom4={() => setCurrentRoom(4)}
-        />
-      )}
-
-      {/* Room of Sciencebattle */}
-      {activeMission && currentRoom === 4 && (
-        <RoomOfSciencebattle
-          mission={activeMission}
-          onBack={() => {
-            setActiveMission(null);
-            setCurrentRoom(1);
-            setShowMissions(true);
-          }}
-          onProceedToFinalStage={() => setCurrentRoom(5)}
-        />
-      )}
-
-      {/* Final Stage */}
-      {activeMission && currentRoom === 5 && (
-        <FinalStage
-          mission={activeMission}
-          onBack={() => {
-            setActiveMission(null);
-            setCurrentRoom(1);
-            setShowMissions(true);
-          }}
-        />
-      )}
-
-      {/* Login Modal */}
-      {showLogin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-[#0f2a2e] border border-teal-500/30 rounded-2xl p-8 w-full max-w-md relative"
-          >
-            <button onClick={() => setShowLogin(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white text-xl">&times;</button>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-teal-500 flex items-center justify-center">
-                <Lock className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-white">Admin Authentication</h2>
-                <p className="text-teal-400 font-[JetBrains_Mono,monospace] text-xs">SECURE ACCESS PORTAL</p>
-              </div>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="text-gray-400 text-sm mb-1 block">Admin Username</label>
-                <input
-                  type="string"
-                  value={string}
-                  onChange={e => setUsername(e.target.value)}
-                  placeholder="username"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-gray-400 text-sm mb-1 block">Access Code</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your access code"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                Access Mission Control
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </form>
-            <p className="text-gray-600 text-xs mt-4 text-center">Demo mode: any credentials will work</p>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Admin Dashboard */}
-      {showAdmin && (
-        <AdminDashboard onBack={() => setShowAdmin(false)} />
-      )}
+      {/* Feature Cards */}
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.3 }}
+        className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20 max-w-5xl w-full"
+      >
+        {features.map((feature, index) => (
+          <FeatureCard key={index} {...feature} />
+        ))}
+      </motion.div>
     </div>
   );
 }
 
+function FeatureCard({ icon: Icon, title, desc, color }: {
+  icon: typeof Brain;
+  title: string;
+  desc: string;
+  color: string;
+}) {
+  return (
+    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:border-teal-500/40 transition-colors">
+      <Icon className={`w-8 h-8 ${color} mb-4`} />
+      <h3 className="text-white mb-2">{title}</h3>
+      <p className="text-gray-400 text-sm">{desc}</p>
+    </div>
+  );
+}
