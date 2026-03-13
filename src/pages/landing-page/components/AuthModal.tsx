@@ -9,9 +9,10 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultMode?: AuthMode;
+  onAuthSuccess?: () => void;
 }
 
-export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, defaultMode = "login", onAuthSuccess }: AuthModalProps) {
   const [mode, setMode] = useState<AuthMode>(defaultMode);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -55,6 +56,8 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
       setUsername("");
       setPassword("");
       setConfirmPassword("");
+      // Call success callback to redirect
+      onAuthSuccess?.();
     } catch {
       // Error is handled by auth context
     }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { Shield, Lock, Users, Brain, ChevronRight, User, LogOut } from "lucide-react";
 import { ImageWithFallback } from "./ImageWithFallback";
@@ -17,6 +18,12 @@ export function LandingPage() {
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleAuthSuccess = () => {
+    // Redirect to admin dashboard after successful login/register
+    navigate("/admin");
+  };
 
   // Show active mission room
   if (state.activeMission) {
@@ -68,6 +75,7 @@ export function LandingPage() {
         isOpen={showAuth}
         onClose={() => setShowAuth(false)}
         defaultMode={authMode}
+        onAuthSuccess={handleAuthSuccess}
       />
 
       <PasswordGate
