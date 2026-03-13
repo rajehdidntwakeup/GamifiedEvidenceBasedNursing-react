@@ -26,7 +26,7 @@ import type { ActiveTeam, PastGame, SortDir, SortField, Tab, TimeoutAlert } from
 import React from "react";
 
 interface AdminDashboardProps {
-  onBack: () => void;
+  onBack?: () => void;
 }
 
 export function AdminDashboard({ onBack }: AdminDashboardProps) {
@@ -194,6 +194,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
               <button
                 onClick={onBack}
                 className="flex items-center gap-2 text-gray-400 hover:text-teal-400 transition-colors"
+                disabled={!onBack}
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
