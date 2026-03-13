@@ -1,5 +1,10 @@
 import { LandingPage } from "@/pages/landing-page/landing-page";
+import { AuthProvider } from "@/services/auth-context";
 
 export default function App() {
-  return <LandingPage />;
+  return (
+    <AuthProvider>
+      <LandingPage />
+    </AuthProvider>
+  );
 }

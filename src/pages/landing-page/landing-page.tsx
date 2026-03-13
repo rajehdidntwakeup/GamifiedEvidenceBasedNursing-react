@@ -1,24 +1,22 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Shield, Lock, Users, Brain, ChevronRight } from "lucide-react";
+import { Shield, Lock, Users, Brain, ChevronRight, User, LogOut } from "lucide-react";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { MISSIONS } from "./landing-page.data";
 import { MissionGrid } from "./components/MissionGrid";
 import { MissionCard } from "./components/MissionCard";
 import { PasswordGate } from "./components/PasswordGate";
-import { LoginModal } from "./components/LoginModal";
+import { AuthModal } from "./components/AuthModal";
 import { RoomRouter } from "./components/RoomRouter";
 import { useMissionState } from "./hooks/useMissionState";
+import { useAuth } from "@/services/auth-context";
 import type { LandingMission } from "./landing-page.data";
 
 export function LandingPage() {
   const [state, actions] = useMissionState();
-  const [isClient, setIsClient] = useState(false);
-
-  // Hydration fix
-  useState(() => {
-    setIsClient(true);
-  });
+  const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const { user, isAuthenticated, logout } = useAuth();
 
   // Show active mission room
   if (state.activeMission) {
@@ -47,21 +45,29 @@ export function LandingPage() {
         <Background />
 
         {/* Navigation */}
-        <Navigation onLoginClick={() => actions.setShowLogin(true)} />
+        <Navigation 
+          onLoginClick={() => {
+            setAuthMode("login");
+            setShowAuth(true);
+          }}
+          onRegisterClick={() => {
+            setAuthMode("register");
+            setShowAuth(true);
+          }}
+          isAuthenticated={isAuthenticated}
+          user={user}
+          onLogout={logout}
+        />
 
         {/* Hero Section */}
         <HeroSection onBeginMission={() => actions.setShowMissions(true)} />
       </div>
 
-      {/* Modals */}
-      <LoginModal
-        isOpen={state.showLogin}
-        onClose={() => actions.setShowLogin(false)}
-        username={state.username}
-        password={state.password}
-        onUsernameChange={actions.setUsername}
-        onPasswordChange={actions.setPassword}
-        onSubmit={actions.handleLogin}
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuth}
+        onClose={() => setShowAuth(false)}
+        defaultMode={authMode}
       />
 
       <PasswordGate
@@ -101,7 +107,19 @@ function Background() {
   );
 }
 
-function Navigation({ onLoginClick }: { onLoginClick: () => void }) {
+function Navigation({ 
+  onLoginClick, 
+  onRegisterClick,
+  isAuthenticated,
+  user,
+  onLogout
+}: { 
+  onLoginClick: () => void;
+  onRegisterClick: () => void;
+  isAuthenticated: boolean;
+  user: { username: string; role: string } | null;
+  onLogout: () => void;
+}) {
   return (
     <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6">
       <div className="flex items-center gap-3">
@@ -112,12 +130,40 @@ function Navigation({ onLoginClick }: { onLoginClick: () => void }) {
           EBNA <span className="text-teal-400">Escape Room</span>
         </span>
       </div>
-      <button
-        onClick={onLoginClick}
-        className="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-lg transition-colors"
-      >
-        Admin Login
-      </button>
+      
+      <div className="flex items-center gap-3">
+        {isAuthenticated ? (
+          <>
+            <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-lg">
+              <User className="w-4 h-4 text-teal-400" />
+              <span className="text-sm text-gray-300">{user?.username}</span>
+              <span className="text-xs text-teal-400 bg-teal-500/20 px-2 py-0.5 rounded">{user?.role}</span>
+            </div>
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={onLoginClick}
+              className="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-lg transition-colors"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={onRegisterClick}
+              className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white border border-white/20 rounded-lg transition-colors"
+            >
+              Register
+            </button>
+          </>
+        )}
+      </div>
     </nav>
   );
 }
