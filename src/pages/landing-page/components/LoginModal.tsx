@@ -1,5 +1,5 @@
-import { motion } from "motion/react";
 import { Lock, X } from "lucide-react";
+import { motion } from "motion/react";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -53,8 +53,9 @@ export function LoginModal({
         <form onSubmit={onSubmit}>
           <div className="space-y-4 mb-6">
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Username</label>
+              <label htmlFor="login-username" className="block text-sm text-gray-400 mb-2">Username</label>
               <input
+                id="login-username"
                 type="text"
                 value={username}
                 onChange={(e) => onUsernameChange(e.target.value)}
@@ -63,8 +64,9 @@ export function LoginModal({
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Password</label>
+              <label htmlFor="login-password" className="block text-sm text-gray-400 mb-2">Password</label>
               <input
+                id="login-password"
                 type="password"
                 value={password}
                 onChange={(e) => onPasswordChange(e.target.value)}

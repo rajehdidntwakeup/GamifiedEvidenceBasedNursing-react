@@ -1,5 +1,3 @@
-import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowLeft,
   Clock,
@@ -11,10 +9,16 @@ import {
   Trophy,
   KeyRound,
 } from "lucide-react";
-import { QUESTIONS_BY_MISSION, TOTAL_TIME } from "./room-of-knowledge.data";
-import type { RoomOfKnowledgeProps } from "./room-of-knowledge.data";
+import { motion, AnimatePresence } from "motion/react";
+import { useState, useEffect, useCallback } from "react";
+
+import { TOTAL_TIME, loadRoomOfKnowledgeQuestions } from "./room-of-knowledge.data";
+import type { RoomOfKnowledgeProps, RoomQuestion } from "./room-of-knowledge.data";
 
 export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKnowledgeProps) {
+  const [questions, setQuestions] = useState<RoomQuestion[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -24,11 +28,47 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
   const [answers, setAnswers] = useState<(number | null)[]>([]);
   const [timeExpired, setTimeExpired] = useState(false);
 
-  const questions = QUESTIONS_BY_MISSION[mission.id] || QUESTIONS_BY_MISSION[1];
+  const loadQuestions = useCallback(async () => {
+    setIsLoadingQuestions(true);
+    setQuestionsError(null);
+
+    try {
+      const mappedQuestions = await loadRoomOfKnowledgeQuestions(mission.id);
+
+      setQuestions(mappedQuestions);
+      setTimeLeft(TOTAL_TIME);
+      setCurrentQuestion(0);
+      setSelectedAnswer(null);
+      setIsAnswered(false);
+      setScore(0);
+      setIsComplete(false);
+      setAnswers([]);
+      setTimeExpired(false);
+    } catch (error) {
+      setQuestions([]);
+      setQuestionsError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to load Room of Knowledge questions.",
+      );
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  }, [mission.id]);
+
+  useEffect(() => {
+    void loadQuestions();
+  }, [loadQuestions]);
 
   // Timer
   useEffect(() => {
-    if (isComplete || timeExpired) return;
+    if (
+      isComplete ||
+      timeExpired ||
+      isLoadingQuestions ||
+      !!questionsError ||
+      questions.length === 0
+    ) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -41,7 +81,7 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isComplete, timeExpired]);
+  }, [isComplete, timeExpired, isLoadingQuestions, questionsError, questions.length]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -50,10 +90,12 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
   const isTimerCritical = timeLeft < 60; // under 1 min
 
   const handleSelectAnswer = (index: number) => {
-    if (isAnswered) return;
+    if (isAnswered || isLoadingQuestions) return;
+    const activeQuestion = questions[currentQuestion];
+    if (!activeQuestion) return;
     setSelectedAnswer(index);
     setIsAnswered(true);
-    const isCorrect = index === questions[currentQuestion].correctIndex;
+    const isCorrect = index === activeQuestion.correctIndex;
     if (isCorrect) setScore((s) => s + 1);
     setAnswers((prev) => [...prev, index]);
   };
@@ -69,11 +111,76 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
   }, [currentQuestion, questions.length]);
 
   const q = questions[currentQuestion];
-  const progressPercent = ((currentQuestion + (isAnswered ? 1 : 0)) / questions.length) * 100;
+  const progressPercent =
+    questions.length > 0
+      ? ((currentQuestion + (isAnswered ? 1 : 0)) / questions.length) * 100
+      : 0;
+
+  if (isLoadingQuestions) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]">
+        <div
+          className="absolute inset-0 z-0 opacity-5"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(20,184,166,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(20,184,166,0.3) 1px, transparent 1px)",
+            backgroundSize: "60px 60px",
+          }}
+        />
+        <div className="relative z-10 flex items-center justify-center min-h-screen px-6">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-300">Loading Room of Knowledge questions...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (questionsError || !q) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]">
+        <div
+          className="absolute inset-0 z-0 opacity-5"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(20,184,166,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(20,184,166,0.3) 1px, transparent 1px)",
+            backgroundSize: "60px 60px",
+          }}
+        />
+        <div className="relative z-10 flex items-center justify-center min-h-screen px-6">
+          <div className="max-w-lg w-full text-center bg-white/5 border border-white/10 rounded-2xl p-8">
+            <AlertTriangle className="w-10 h-10 text-orange-400 mx-auto mb-4" />
+            <h2 className="text-2xl text-white mb-3 tracking-tight">Unable to load questions</h2>
+            <p className="text-gray-400 mb-6">
+              {questionsError || "No playable questions were found for this mission."}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={onBack}
+                className="px-6 py-3 bg-white/5 border border-white/10 hover:border-teal-500/40 text-white rounded-xl transition-colors"
+              >
+                Back to Missions
+              </button>
+              <button
+                onClick={() => {
+                  void loadQuestions();
+                }}
+                className="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                Retry Load
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isComplete) {
     const percentage = Math.round((score / questions.length) * 100);
-    const passed = percentage >= 60;
+    const passed = score === questions.length;
     return (
       <div className="fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]">
         {/* Grid overlay */}
@@ -141,7 +248,7 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">{percentage}% correct</span>
                 <span className={passed ? "text-teal-400" : "text-orange-400"}>
-                  {passed ? "PASSED" : "60% required to pass"}
+                  {passed ? "PASSED" : "All questions must be correct"}
                 </span>
               </div>
             </div>
@@ -164,7 +271,7 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
                     <span className="text-teal-400 font-[JetBrains_Mono,monospace] text-sm">CLUE LETTERS UNLOCKED</span>
                   </div>
                   <p className="text-gray-400 text-sm mb-5">
-                    You've earned two letters for solving the case. Keep these safe — you'll need them later!
+                    You&apos;ve earned two letters for solving the case. Keep these safe — you&apos;ll need them later!
                   </p>
                   <div className="flex items-center justify-center gap-6">
                     {["E", "C"].map((letter, i) => (
@@ -412,7 +519,7 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
                 </div>
 
                 {/* Explanation */}
-                {isAnswered && (
+                {isAnswered && q.explanation && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}

@@ -1,5 +1,3 @@
-import { useState, useEffect } from "react";
-import { motion } from "motion/react";
 import {
   ArrowLeft,
   Clock,
@@ -20,6 +18,9 @@ import {
   ShieldCheck,
   ShieldAlert,
 } from "lucide-react";
+import { motion } from "motion/react";
+import { useState, useEffect } from "react";
+
 import { LOE_OPTIONS, METHODOLOGY_MIN_WORDS, STUDIES_BY_MISSION, TOTAL_TIME } from "./room-of-analytics.data";
 import type { RoomOfAnalyticsProps } from "./room-of-analytics.data";
 
@@ -479,7 +480,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
             <div className="w-20 h-20 rounded-2xl bg-orange-500/20 flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-10 h-10 text-orange-400" />
             </div>
-            <h2 className="text-3xl text-white mb-2">Time's Up!</h2>
+            <h2 className="text-3xl text-white mb-2">Time&apos;s Up!</h2>
             <p className="text-gray-400 mb-8">
               You ran out of time before submitting your analysis.
             </p>
@@ -605,8 +606,9 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                 transition={{ duration: 0.4, delay: 0.1 }}
                 className="lg:sticky lg:top-0 lg:self-start"
               >
-                <div
-                  className="group bg-[#faf9f6] rounded-2xl overflow-hidden cursor-pointer hover:shadow-[0_0_30px_rgba(20,184,166,0.15)] transition-shadow"
+                <button
+                  type="button"
+                  className="group bg-[#faf9f6] rounded-2xl overflow-hidden cursor-pointer hover:shadow-[0_0_30px_rgba(20,184,166,0.15)] transition-shadow w-full text-left"
                   onClick={() => setViewingStudy(0)}
                 >
                   <div className="bg-gray-100 px-6 py-3 border-b border-gray-200 flex items-center justify-between">
@@ -648,7 +650,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                       <span className="text-xs">Click to view full-screen</span>
                     </div>
                   </div>
-                </div>
+                </button>
               </motion.div>
 
               {/* RIGHT: Analysis Tasks */}

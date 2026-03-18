@@ -1,5 +1,3 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import {
   KeyRound,
   Trophy,
@@ -12,13 +10,35 @@ import {
   Printer,
   X,
 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { useState, useCallback, useRef } from "react";
+
 import { ANSWER, COLLECTED_LETTERS, formatDate, shuffleArray } from "./final-stage.data";
 import type { FinalStageProps } from "./final-stage.data";
 
-export function FinalStage({ mission, onBack }: FinalStageProps) {
+const CELEBRATION_PARTICLES = Array.from({ length: 20 }, (_, index) => ({
+  id: index,
+  left: Math.random() * 100,
+  duration: 3 + Math.random() * 3,
+  delay: Math.random() * 2,
+  color:
+    index % 3 === 0
+      ? "rgba(20,184,166,0.6)"
+      : index % 3 === 1
+        ? "rgba(249,115,22,0.6)"
+        : "rgba(234,179,8,0.6)",
+}));
+
+export function FinalStage({ onBack }: FinalStageProps) {
   const [shuffledLetters, setShuffledLetters] = useState<
     { letter: string; id: number; room: number; roomName: string }[]
-  >([]);
+  >(() => {
+    const lettersWithIds = COLLECTED_LETTERS.map((letter, index) => ({
+      ...letter,
+      id: index,
+    }));
+    return shuffleArray(lettersWithIds);
+  });
   const [slots, setSlots] = useState<(number | null)[]>(Array(8).fill(null));
   const [isSolved, setIsSolved] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -31,14 +51,6 @@ export function FinalStage({ mission, onBack }: FinalStageProps) {
   const [showTeamPrompt, setShowTeamPrompt] = useState(false);
   const certificateRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const lettersWithIds = COLLECTED_LETTERS.map((l, i) => ({
-      ...l,
-      id: i,
-    }));
-    setShuffledLetters(shuffleArray(lettersWithIds));
-  }, []);
-
   const getSlotLetter = (slotIndex: number): string | null => {
     const letterId = slots[slotIndex];
     if (letterId === null) return null;
@@ -46,14 +58,10 @@ export function FinalStage({ mission, onBack }: FinalStageProps) {
     return found ? found.letter : null;
   };
 
-  const isLetterPlaced = (letterId: number): boolean => {
-    return slots.includes(letterId);
-  };
-
   const placeLetter = useCallback(
     (letterId: number) => {
       if (isSolved) return;
-      if (isLetterPlaced(letterId)) {
+      if (slots.includes(letterId)) {
         setSlots((prev) => prev.map((s) => (s === letterId ? null : s)));
         setWrongAttempt(false);
         return;
@@ -428,18 +436,13 @@ export function FinalStage({ mission, onBack }: FinalStageProps) {
 
         {/* Floating particles */}
         <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden">
-          {Array.from({ length: 20 }).map((_, i) => (
+          {CELEBRATION_PARTICLES.map((particle) => (
             <motion.div
-              key={i}
+              key={particle.id}
               className="absolute w-2 h-2 rounded-full"
               style={{
-                left: `${Math.random() * 100}%`,
-                backgroundColor:
-                  i % 3 === 0
-                    ? "rgba(20,184,166,0.6)"
-                    : i % 3 === 1
-                      ? "rgba(249,115,22,0.6)"
-                      : "rgba(234,179,8,0.6)",
+                left: `${particle.left}%`,
+                backgroundColor: particle.color,
               }}
               initial={{ y: "100vh", opacity: 0 }}
               animate={{
@@ -447,8 +450,8 @@ export function FinalStage({ mission, onBack }: FinalStageProps) {
                 opacity: [0, 1, 1, 0],
               }}
               transition={{
-                duration: 3 + Math.random() * 3,
-                delay: Math.random() * 2,
+                duration: particle.duration,
+                delay: particle.delay,
                 repeat: Infinity,
                 ease: "easeOut",
               }}
@@ -622,7 +625,7 @@ export function FinalStage({ mission, onBack }: FinalStageProps) {
                 <Award className="w-10 h-10 text-yellow-400 mx-auto mb-3" />
                 <h3 className="text-white text-lg mb-2">Expert of Evidence</h3>
                 <p className="text-gray-400 text-sm mb-5">
-                  You've earned the prestigious Expert of Evidence certificate.
+                  You&apos;ve earned the prestigious Expert of Evidence certificate.
                   Enter your team name to claim it!
                 </p>
                 <button
@@ -690,15 +693,15 @@ export function FinalStage({ mission, onBack }: FinalStageProps) {
                 className="space-y-4"
               >
                 <div>
-                  <label className="text-gray-400 text-sm mb-1 block">
+                  <label htmlFor="team-name-input" className="text-gray-400 text-sm mb-1 block">
                     Team Name
                   </label>
                   <input
+                    id="team-name-input"
                     type="text"
                     value={teamNameInput}
                     onChange={(e) => setTeamNameInput(e.target.value)}
                     placeholder="Enter your team name"
-                    autoFocus
                     className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
                   />
                 </div>
@@ -778,7 +781,7 @@ export function FinalStage({ mission, onBack }: FinalStageProps) {
                 Crack the <span className="text-teal-400">Code</span>
               </h2>
               <p className="text-gray-400 max-w-lg mx-auto">
-                You've collected 8 letters from all four rooms. Arrange them to
+                You&apos;ve collected 8 letters from all four rooms. Arrange them to
                 reveal the name that inspired evidence-based nursing.
               </p>
             </motion.div>
@@ -821,7 +824,7 @@ export function FinalStage({ mission, onBack }: FinalStageProps) {
                 ARRANGE THE LETTERS TO FORM THE ANSWER
               </p>
               <div className="flex items-center justify-center gap-2 md:gap-3">
-                {slots.map((letterId, slotIndex) => {
+                {slots.map((_, slotIndex) => {
                   const letter = getSlotLetter(slotIndex);
                   return (
                     <motion.button
@@ -892,7 +895,7 @@ export function FinalStage({ mission, onBack }: FinalStageProps) {
               </p>
               <div className="flex items-center justify-center gap-2 md:gap-3 flex-wrap">
                 {shuffledLetters.map((item) => {
-                  const placed = isLetterPlaced(item.id);
+                  const placed = slots.includes(item.id);
                   return (
                     <motion.button
                       key={item.id}

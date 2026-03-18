@@ -60,12 +60,12 @@ export const authApi = {
 
 // ============== GAME API ==============
 
-export interface GameResponse {
-  id: number;
+export interface CreateGameRequest {
   password: string;
-  begin: string;
-  finish: string | null;
-  status: string;
+}
+
+export interface CreateGameResponse {
+  gameId: number;
   teamMissions: Record<string, number>;
 }
 
@@ -89,10 +89,10 @@ export interface TeamResult {
 }
 
 export const gameApi = {
-  create: (password: string) =>
-    fetchApi<GameResponse>("/game/create", {
+  create: (request: CreateGameRequest) =>
+    fetchApi<CreateGameResponse>("/game/create", {
       method: "POST",
-      body: JSON.stringify({ password }),
+      body: JSON.stringify(request),
     }),
   
   getResults: (gameId: number) =>
@@ -181,7 +181,76 @@ export interface SubmitAnswerResponse {
   nextQuestionId: number | null;
 }
 
+export type MissionApi =
+  | "WOUND_CARE_FOR_PRESSURE_ULCERS"
+  | "FALL_PREVENTION_IN_GERIATRICS"
+  | "PAIN_MANAGEMENT_IN_POSTOPERATIVE_CARE"
+  | "NUTRITIONAL_INTERVENTIONS_FOR_MALNUTRITION"
+  | "PREVENTION_OF_CATHETER_ASSOCIATED_URINARY_TRACT_INFECTIONS";
+
+export interface RoomOfKnowledgeAnswerDto {
+  answer: string;
+  isCorrect?: boolean;
+  correct?: boolean;
+}
+
+export interface RoomOfKnowledgeQuestionDto {
+  question: string;
+  answers: RoomOfKnowledgeAnswerDto[];
+}
+
+export interface RoomOfAbstractsCorrectAnswersDto {
+  titleAuthor: string;
+  pyramid: string;
+  ahcpr: string;
+  studyDesign: string;
+}
+
+export interface RoomOfAbstractsArticleDto {
+  id: number;
+  title: string;
+  authors: string;
+  journal: string;
+  year: number;
+  abstract: string;
+  correctAnswers: RoomOfAbstractsCorrectAnswersDto;
+}
+
 export const roomApi = {
+  getRoomOfKnowledgeQuestionList: ({
+    gameId,
+    mission,
+    password,
+  }: {
+    gameId: number;
+    mission: MissionApi;
+    password?: string;
+  }) => {
+    const query = new URLSearchParams({
+      gameId: String(gameId),
+      mission,
+      ...(password ? { password } : {}),
+    }).toString();
+    return fetchApi<RoomOfKnowledgeQuestionDto[]>(`/rooms/room-of-knowledge?${query}`);
+  },
+
+  getRoomOfAbstractsArticleList: ({
+    gameId,
+    mission,
+    password,
+  }: {
+    gameId: number;
+    mission: MissionApi;
+    password?: string;
+  }) => {
+    const query = new URLSearchParams({
+      gameId: String(gameId),
+      mission,
+      ...(password ? { password } : {}),
+    }).toString();
+    return fetchApi<RoomOfAbstractsArticleDto[]>(`/rooms/room-of-abstracts?${query}`);
+  },
+
   getStatus: (roomId: number, teamId: number) =>
     fetchApi<RoomStatus>(`/rooms/${roomId}/status?teamId=${teamId}`),
     
@@ -263,6 +332,9 @@ export interface AdminTeamSummary {
 }
 
 export const adminApi = {
+  isThereAdmin: () =>
+    fetchApi<boolean>("/admin/isThereAdmin"),
+
   getAllGames: () =>
     fetchApi<AdminGame[]>("/admin/games"),
     

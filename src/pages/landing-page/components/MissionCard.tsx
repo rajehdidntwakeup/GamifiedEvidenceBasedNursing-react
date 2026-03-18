@@ -1,5 +1,6 @@
-import { motion } from "motion/react";
 import { ChevronRight } from "lucide-react";
+import { motion } from "motion/react";
+
 import type { LandingMission } from "../landing-page.data";
 
 interface MissionCardProps {

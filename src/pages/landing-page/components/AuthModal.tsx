@@ -1,6 +1,7 @@
+import { X, UserPlus, LogIn } from "lucide-react";
 import { motion } from "motion/react";
-import { Lock, X, UserPlus, LogIn } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
 import { useAuth } from "@/services/auth-context";
 
 type AuthMode = "login" | "register";
@@ -9,17 +10,58 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultMode?: AuthMode;
+  canRegister?: boolean;
   onAuthSuccess?: () => void;
 }
 
-export function AuthModal({ isOpen, onClose, defaultMode = "login", onAuthSuccess }: AuthModalProps) {
-  const [mode, setMode] = useState<AuthMode>(defaultMode);
+function getFriendlyLoginError(errorMessage: string) {
+  const normalizedError = errorMessage.toLowerCase();
+  const invalidCredentialPatterns = [
+    "bad credentials",
+    "invalid credential",
+    "invalid username",
+    "invalid password",
+    "username or password",
+    "wrong password",
+    "unauthorized",
+    "401",
+  ];
+
+  if (invalidCredentialPatterns.some((pattern) => normalizedError.includes(pattern))) {
+    return "Incorrect username or password. Please try again.";
+  }
+
+  if (normalizedError.includes("failed to fetch") || normalizedError.includes("networkerror")) {
+    return "Unable to reach the server. Please check your connection and try again.";
+  }
+
+  return "Unable to sign in right now. Please try again.";
+}
+
+export function AuthModal({
+  isOpen,
+  onClose,
+  defaultMode = "login",
+  canRegister = true,
+  onAuthSuccess,
+}: AuthModalProps) {
+  const [mode, setMode] = useState<AuthMode>(canRegister ? defaultMode : "login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   
   const { login, register, isLoading, error, clearError } = useAuth();
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setMode(canRegister ? defaultMode : "login");
+    setLocalError(null);
+    clearError();
+  }, [isOpen, canRegister, defaultMode, clearError]);
 
   if (!isOpen) return null;
 
@@ -35,6 +77,10 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", onAuthSucces
     }
 
     if (mode === "register") {
+      if (!canRegister) {
+        setLocalError("Registration is currently unavailable.");
+        return;
+      }
       if (password !== confirmPassword) {
         setLocalError("Passwords do not match");
         return;
@@ -58,12 +104,21 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", onAuthSucces
       setConfirmPassword("");
       // Call success callback to redirect
       onAuthSuccess?.();
-    } catch {
-      // Error is handled by auth context
+    } catch (err) {
+      if (mode === "login") {
+        const fallbackError = "Unable to sign in right now. Please try again.";
+        const rawError = err instanceof Error ? err.message : fallbackError;
+        setLocalError(getFriendlyLoginError(rawError));
+      }
+      // Other errors are handled by auth context
     }
   };
 
   const toggleMode = () => {
+    if (!canRegister) {
+      return;
+    }
+
     setMode(mode === "login" ? "register" : "login");
     setLocalError(null);
     clearError();
@@ -117,8 +172,9 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", onAuthSucces
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 mb-6">
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Username</label>
+              <label htmlFor="auth-username" className="block text-sm text-gray-400 mb-2">Username</label>
               <input
+                id="auth-username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -128,8 +184,9 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", onAuthSucces
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Password</label>
+              <label htmlFor="auth-password" className="block text-sm text-gray-400 mb-2">Password</label>
               <input
+                id="auth-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -141,8 +198,9 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", onAuthSucces
             
             {mode === "register" && (
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Confirm Password</label>
+                <label htmlFor="auth-confirm-password" className="block text-sm text-gray-400 mb-2">Confirm Password</label>
                 <input
+                  id="auth-confirm-password"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -171,19 +229,21 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login", onAuthSucces
         </form>
 
         {/* Toggle mode */}
-        <div className="mt-6 text-center">
-          <p className="text-gray-400 text-sm">
-            {mode === "login" ? "Don't have an account? " : "Already have an account? "}
-            <button
-              type="button"
-              onClick={toggleMode}
-              disabled={isLoading}
-              className="text-teal-400 hover:text-teal-300 font-medium disabled:opacity-50"
-            >
-              {mode === "login" ? "Create one" : "Sign in"}
-            </button>
-          </p>
-        </div>
+        {canRegister && (
+          <div className="mt-6 text-center">
+            <p className="text-gray-400 text-sm">
+              {mode === "login" ? "Don't have an account? " : "Already have an account? "}
+              <button
+                type="button"
+                onClick={toggleMode}
+                disabled={isLoading}
+                className="text-teal-400 hover:text-teal-300 font-medium disabled:opacity-50"
+              >
+                {mode === "login" ? "Create one" : "Sign in"}
+              </button>
+            </p>
+          </div>
+        )}
       </motion.div>
     </div>
   );

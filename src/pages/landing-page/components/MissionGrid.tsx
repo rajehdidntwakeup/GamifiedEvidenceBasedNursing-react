@@ -1,7 +1,9 @@
-import { motion } from "motion/react";
 import { ArrowLeft, Lock } from "lucide-react";
+import { motion } from "motion/react";
+
 import { MISSIONS } from "../landing-page.data";
 import type { LandingMission } from "../landing-page.data";
+
 import { MissionCard } from "./MissionCard";
 
 interface MissionGridProps {

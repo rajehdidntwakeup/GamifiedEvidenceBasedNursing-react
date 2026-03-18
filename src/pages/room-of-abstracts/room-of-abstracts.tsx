@@ -1,5 +1,3 @@
-import { useState, useEffect } from "react";
-import { motion } from "motion/react";
 import {
   ArrowLeft,
   Clock,
@@ -14,26 +12,149 @@ import {
   Eye,
   X,
 } from "lucide-react";
-import { AHCPR_OPTIONS, ARTICLES_BY_MISSION, PYRAMID_OPTIONS, STUDY_DESIGN_OPTIONS, TOTAL_TIME } from "./room-of-abstracts.data";
-import type { RoomOfAbstractsProps, TableRow } from "./room-of-abstracts.data";
+import { motion } from "motion/react";
+import { useState, useEffect, useCallback } from "react";
+
+import { roomApi } from "@/services/api";
+import type { MissionApi, RoomOfAbstractsArticleDto } from "@/services/api";
+
+import { AHCPR_OPTIONS, PYRAMID_OPTIONS, STUDY_DESIGN_OPTIONS, TOTAL_TIME } from "./room-of-abstracts.data";
+import type { Article, RoomOfAbstractsProps, TableRow } from "./room-of-abstracts.data";
+
+const MISSION_BY_ID: Record<number, MissionApi> = {
+  1: "WOUND_CARE_FOR_PRESSURE_ULCERS",
+  2: "FALL_PREVENTION_IN_GERIATRICS",
+  3: "PAIN_MANAGEMENT_IN_POSTOPERATIVE_CARE",
+  4: "NUTRITIONAL_INTERVENTIONS_FOR_MALNUTRITION",
+  5: "PREVENTION_OF_CATHETER_ASSOCIATED_URINARY_TRACT_INFECTIONS",
+};
+
+const EMPTY_TABLE_ROW: TableRow = { titleAuthor: "", pyramid: "", ahcpr: "", studyDesign: "" };
+
+function createEmptyTableData(size: number): TableRow[] {
+  return Array.from({ length: size }, () => ({ ...EMPTY_TABLE_ROW }));
+}
+
+function mapApiArticlesToRoomArticles(apiArticles: RoomOfAbstractsArticleDto[]): Article[] {
+  return apiArticles
+    .map((apiArticle, index) => {
+      if (
+        !apiArticle.title ||
+        !apiArticle.authors ||
+        !apiArticle.journal ||
+        !apiArticle.abstract ||
+        !apiArticle.correctAnswers?.titleAuthor ||
+        !apiArticle.correctAnswers.pyramid ||
+        !apiArticle.correctAnswers.ahcpr ||
+        !apiArticle.correctAnswers.studyDesign
+      ) {
+        return null;
+      }
+
+      return {
+        id: apiArticle.id || index + 1,
+        title: apiArticle.title,
+        authors: apiArticle.authors,
+        journal: apiArticle.journal,
+        year: apiArticle.year,
+        abstract: apiArticle.abstract,
+        correctAnswers: {
+          titleAuthor: apiArticle.correctAnswers.titleAuthor,
+          pyramid: apiArticle.correctAnswers.pyramid,
+          ahcpr: apiArticle.correctAnswers.ahcpr,
+          studyDesign: apiArticle.correctAnswers.studyDesign,
+        },
+      };
+    })
+    .filter((article): article is Article => article !== null);
+}
 
 export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbstractsProps) {
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [isLoadingArticles, setIsLoadingArticles] = useState(true);
+  const [articlesError, setArticlesError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME);
   const [timeExpired, setTimeExpired] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [viewingArticle, setViewingArticle] = useState<number | null>(null);
-  const [tableData, setTableData] = useState<TableRow[]>([
-    { titleAuthor: "", pyramid: "", ahcpr: "", studyDesign: "" },
-    { titleAuthor: "", pyramid: "", ahcpr: "", studyDesign: "" },
-    { titleAuthor: "", pyramid: "", ahcpr: "", studyDesign: "" },
-  ]);
+  const [tableData, setTableData] = useState<TableRow[]>([]);
   const [results, setResults] = useState<boolean[][] | null>(null);
 
-  const articles = ARTICLES_BY_MISSION[mission.id] || ARTICLES_BY_MISSION[1];
+  const loadArticles = useCallback(async () => {
+    setIsLoadingArticles(true);
+    setArticlesError(null);
+
+    const storedGameId = localStorage.getItem("activeGameId");
+    const gameId = storedGameId ? Number(storedGameId) : NaN;
+
+    if (!Number.isInteger(gameId) || gameId <= 0) {
+      setArticles([]);
+      setTableData([]);
+      setArticlesError("No active game found. Ask an admin to create a game first.");
+      setIsLoadingArticles(false);
+      return;
+    }
+
+    const missionApi = MISSION_BY_ID[mission.id];
+    if (!missionApi) {
+      setArticles([]);
+      setTableData([]);
+      setArticlesError("This mission is not mapped to an API mission.");
+      setIsLoadingArticles(false);
+      return;
+    }
+
+    const storedPassword = sessionStorage.getItem("activeMissionPassword")?.trim();
+
+    try {
+      const apiArticles = await roomApi.getRoomOfAbstractsArticleList({
+        gameId,
+        mission: missionApi,
+        ...(storedPassword ? { password: storedPassword } : {}),
+      });
+
+      const mappedArticles = mapApiArticlesToRoomArticles(apiArticles);
+
+      if (mappedArticles.length === 0) {
+        setArticles([]);
+        setTableData([]);
+        setArticlesError("No abstracts were returned for this mission.");
+        return;
+      }
+
+      setArticles(mappedArticles);
+      setTableData(createEmptyTableData(mappedArticles.length));
+      setTimeLeft(TOTAL_TIME);
+      setTimeExpired(false);
+      setIsComplete(false);
+      setViewingArticle(null);
+      setResults(null);
+    } catch (error) {
+      setArticles([]);
+      setTableData([]);
+      setArticlesError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to load Room of Abstracts data.",
+      );
+    } finally {
+      setIsLoadingArticles(false);
+    }
+  }, [mission.id]);
+
+  useEffect(() => {
+    void loadArticles();
+  }, [loadArticles]);
 
   // Timer
   useEffect(() => {
-    if (isComplete || timeExpired) return;
+    if (
+      isComplete ||
+      timeExpired ||
+      isLoadingArticles ||
+      !!articlesError ||
+      articles.length === 0
+    ) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -46,7 +167,7 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isComplete, timeExpired]);
+  }, [isComplete, timeExpired, isLoadingArticles, articlesError, articles.length]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -57,14 +178,16 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
   const updateTableRow = (rowIndex: number, field: keyof TableRow, value: string) => {
     setTableData((prev) => {
       const updated = [...prev];
-      updated[rowIndex] = { ...updated[rowIndex], [field]: value };
+      const currentRow = updated[rowIndex] ?? EMPTY_TABLE_ROW;
+      updated[rowIndex] = { ...currentRow, [field]: value };
       return updated;
     });
   };
 
   const handleSubmit = () => {
+    if (articles.length === 0) return;
     const checkResults = articles.map((article, i) => {
-      const row = tableData[i];
+      const row = tableData[i] ?? EMPTY_TABLE_ROW;
       const correct = article.correctAnswers;
       return [
         row.titleAuthor.trim().length > 0 && correct.titleAuthor.toLowerCase().includes(row.titleAuthor.trim().toLowerCase().split(" ")[0].replace(",", "")),
@@ -87,15 +210,13 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
     setTimeExpired(false);
     setIsComplete(false);
     setResults(null);
-    setTableData([
-      { titleAuthor: "", pyramid: "", ahcpr: "", studyDesign: "" },
-      { titleAuthor: "", pyramid: "", ahcpr: "", studyDesign: "" },
-      { titleAuthor: "", pyramid: "", ahcpr: "", studyDesign: "" },
-    ]);
+    setViewingArticle(null);
+    setTableData(createEmptyTableData(articles.length));
   };
 
   // Article viewer modal
-  const articleModal = viewingArticle !== null && (
+  const activeArticle = viewingArticle !== null ? articles[viewingArticle] : null;
+  const articleModal = activeArticle && viewingArticle !== null && (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -112,13 +233,13 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
           {/* Journal header */}
           <div className="border-b-2 border-gray-800 pb-3 mb-6">
             <p className="text-gray-500 text-xs tracking-wider uppercase mb-1">
-              {articles[viewingArticle].journal} &bull; {articles[viewingArticle].year}
+              {activeArticle.journal} &bull; {activeArticle.year}
             </p>
             <h2 className="text-gray-900 text-lg" style={{ lineHeight: 1.4 }}>
-              {articles[viewingArticle].title}
+              {activeArticle.title}
             </h2>
             <p className="text-gray-600 text-sm mt-2">
-              {articles[viewingArticle].authors}
+              {activeArticle.authors}
             </p>
           </div>
 
@@ -126,7 +247,7 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
           <div>
             <h3 className="text-gray-800 text-sm tracking-wider uppercase mb-3">Abstract</h3>
             <p className="text-gray-700 text-sm" style={{ lineHeight: 1.8 }}>
-              {articles[viewingArticle].abstract}
+              {activeArticle.abstract}
             </p>
           </div>
 
@@ -158,6 +279,68 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
       </motion.div>
     </div>
   );
+
+  if (isLoadingArticles) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]">
+        <div
+          className="absolute inset-0 z-0 opacity-5"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(20,184,166,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(20,184,166,0.3) 1px, transparent 1px)",
+            backgroundSize: "60px 60px",
+          }}
+        />
+        <div className="relative z-10 flex items-center justify-center min-h-screen px-6">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-300">Loading Room of Abstracts data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (articlesError || articles.length === 0) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]">
+        <div
+          className="absolute inset-0 z-0 opacity-5"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(20,184,166,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(20,184,166,0.3) 1px, transparent 1px)",
+            backgroundSize: "60px 60px",
+          }}
+        />
+        <div className="relative z-10 flex items-center justify-center min-h-screen px-6">
+          <div className="max-w-lg w-full text-center bg-white/5 border border-white/10 rounded-2xl p-8">
+            <AlertTriangle className="w-10 h-10 text-orange-400 mx-auto mb-4" />
+            <h2 className="text-2xl text-white mb-3 tracking-tight">Unable to load abstracts</h2>
+            <p className="text-gray-400 mb-6">
+              {articlesError || "No playable abstracts were found for this mission."}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={onBack}
+                className="px-6 py-3 bg-white/5 border border-white/10 hover:border-teal-500/40 text-white rounded-xl transition-colors"
+              >
+                Back to Missions
+              </button>
+              <button
+                onClick={() => {
+                  void loadArticles();
+                }}
+                className="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                Retry Load
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Results screen
   if (isComplete && results) {
@@ -248,7 +431,7 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
                       <td className="py-3 px-3 text-gray-400">{i + 1}</td>
                       {["titleAuthor", "pyramid", "ahcpr", "studyDesign"].map((field, j) => {
                         const isCorrect = results[i][j];
-                        const userVal = tableData[i][field as keyof TableRow];
+                        const userVal = (tableData[i] ?? EMPTY_TABLE_ROW)[field as keyof TableRow];
                         const correctVal = article.correctAnswers[field as keyof typeof article.correctAnswers];
                         return (
                           <td key={field} className="py-3 px-3">
@@ -383,7 +566,7 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
             <div className="w-20 h-20 rounded-2xl bg-orange-500/20 flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-10 h-10 text-orange-400" />
             </div>
-            <h2 className="text-3xl text-white mb-2">Time's Up!</h2>
+            <h2 className="text-3xl text-white mb-2">Time&apos;s Up!</h2>
             <p className="text-gray-400 mb-8">You ran out of time before submitting your analysis.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={onBack} className="px-6 py-3 bg-white/5 border border-white/10 hover:border-teal-500/40 text-white rounded-xl transition-colors">
@@ -400,9 +583,10 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
   }
 
   // Main room UI
-  const allFilled = tableData.every(
-    (row) => row.titleAuthor.trim() && row.pyramid && row.ahcpr && row.studyDesign
-  );
+  const allFilled =
+    articles.length > 0 &&
+    tableData.length === articles.length &&
+    tableData.every((row) => row.titleAuthor.trim() && row.pyramid && row.ahcpr && row.studyDesign);
 
   return (
     <div className="fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]">
@@ -551,69 +735,73 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
                     </tr>
                   </thead>
                   <tbody>
-                    {articles.map((article, i) => (
-                      <tr key={article.id} className="border-b border-white/5">
-                        <td className="py-4 px-4">
-                          <button
-                            onClick={() => setViewingArticle(i)}
-                            className="w-7 h-7 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center text-xs hover:bg-teal-500/20 transition-colors"
-                          >
-                            {i + 1}
-                          </button>
-                        </td>
-                        <td className="py-4 px-4">
-                          <input
-                            type="text"
-                            value={tableData[i].titleAuthor}
-                            onChange={(e) => updateTableRow(i, "titleAuthor", e.target.value)}
-                            placeholder="e.g. Author et al. (2023)"
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none text-sm"
-                          />
-                        </td>
-                        <td className="py-4 px-4">
-                          <select
-                            value={tableData[i].pyramid}
-                            onChange={(e) => updateTableRow(i, "pyramid", e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-teal-500 focus:outline-none text-sm appearance-none cursor-pointer"
-                            style={{ backgroundImage: "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center" }}
-                          >
-                            {PYRAMID_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value} className="bg-[#0a1f22] text-white">
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="py-4 px-4">
-                          <select
-                            value={tableData[i].ahcpr}
-                            onChange={(e) => updateTableRow(i, "ahcpr", e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-teal-500 focus:outline-none text-sm appearance-none cursor-pointer"
-                            style={{ backgroundImage: "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center" }}
-                          >
-                            {AHCPR_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value} className="bg-[#0a1f22] text-white">
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="py-4 px-4">
-                          <select
-                            value={tableData[i].studyDesign}
-                            onChange={(e) => updateTableRow(i, "studyDesign", e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-teal-500 focus:outline-none text-sm appearance-none cursor-pointer"
-                            style={{ backgroundImage: "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center" }}
-                          >
-                            {STUDY_DESIGN_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value} className="bg-[#0a1f22] text-white">
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
+                    {articles.map((article, i) => {
+                      const row = tableData[i] ?? EMPTY_TABLE_ROW;
+
+                      return (
+                        <tr key={article.id} className="border-b border-white/5">
+                          <td className="py-4 px-4">
+                            <button
+                              onClick={() => setViewingArticle(i)}
+                              className="w-7 h-7 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center text-xs hover:bg-teal-500/20 transition-colors"
+                            >
+                              {i + 1}
+                            </button>
+                          </td>
+                          <td className="py-4 px-4">
+                            <input
+                              type="text"
+                              value={row.titleAuthor}
+                              onChange={(e) => updateTableRow(i, "titleAuthor", e.target.value)}
+                              placeholder="e.g. Author et al. (2023)"
+                              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none text-sm"
+                            />
+                          </td>
+                          <td className="py-4 px-4">
+                            <select
+                              value={row.pyramid}
+                              onChange={(e) => updateTableRow(i, "pyramid", e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-teal-500 focus:outline-none text-sm appearance-none cursor-pointer"
+                              style={{ backgroundImage: "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center" }}
+                            >
+                              {PYRAMID_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value} className="bg-[#0a1f22] text-white">
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-4 px-4">
+                            <select
+                              value={row.ahcpr}
+                              onChange={(e) => updateTableRow(i, "ahcpr", e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-teal-500 focus:outline-none text-sm appearance-none cursor-pointer"
+                              style={{ backgroundImage: "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center" }}
+                            >
+                              {AHCPR_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value} className="bg-[#0a1f22] text-white">
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-4 px-4">
+                            <select
+                              value={row.studyDesign}
+                              onChange={(e) => updateTableRow(i, "studyDesign", e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-teal-500 focus:outline-none text-sm appearance-none cursor-pointer"
+                              style={{ backgroundImage: "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center" }}
+                            >
+                              {STUDY_DESIGN_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value} className="bg-[#0a1f22] text-white">
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -640,6 +828,3 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
     </div>
   );
 }
-
-
-

@@ -1,5 +1,3 @@
-import { useState, useEffect } from "react";
-import { motion } from "motion/react";
 import {
   ArrowLeft,
   Clock,
@@ -19,8 +17,11 @@ import {
   BarChart3,
   PenLine,
 } from "lucide-react";
+import { motion } from "motion/react";
+import { useState, useEffect } from "react";
+
 import { JUSTIFICATION_MIN_WORDS, LOE_OPTIONS, STUDY_PAIRS_BY_MISSION, TOTAL_TIME } from "./room-of-sciencebattle.data";
-import type { RoomOfSciencebattleProps } from "./room-of-sciencebattle.data";
+import type { RoomOfSciencebattleProps, StudyCompact } from "./room-of-sciencebattle.data";
 
 export function RoomOfSciencebattle({ mission, onBack, onProceedToFinalStage }: RoomOfSciencebattleProps) {
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME);
@@ -125,8 +126,9 @@ export function RoomOfSciencebattle({ mission, onBack, onProceedToFinalStage }: 
 
   // Render a study card
   const renderStudyCard = (study: StudyCompact, side: "A" | "B") => (
-    <div
-      className="group bg-[#faf9f6] rounded-2xl overflow-hidden cursor-pointer hover:shadow-[0_0_30px_rgba(20,184,166,0.15)] transition-shadow"
+    <button
+      type="button"
+      className="group bg-[#faf9f6] rounded-2xl overflow-hidden cursor-pointer hover:shadow-[0_0_30px_rgba(20,184,166,0.15)] transition-shadow w-full text-left"
       onClick={() => setViewingStudy(side)}
     >
       <div className="bg-gray-100 px-5 py-3 border-b border-gray-200 flex items-center justify-between">
@@ -169,7 +171,7 @@ export function RoomOfSciencebattle({ mission, onBack, onProceedToFinalStage }: 
           <span className="text-xs">Click to view full-screen</span>
         </div>
       </div>
-    </div>
+    </button>
   );
 
   // Full study modal
@@ -240,7 +242,7 @@ export function RoomOfSciencebattle({ mission, onBack, onProceedToFinalStage }: 
 
           <div className="mt-6 pt-4 border-t border-gray-200">
             <span className="text-gray-400 text-xs font-[JetBrains_Mono,monospace]">
-              STUDY {viewingStudy} // COMPARE CAREFULLY WITH THE OTHER STUDY
+              STUDY {viewingStudy} | COMPARE CAREFULLY WITH THE OTHER STUDY
             </span>
           </div>
         </div>
@@ -586,7 +588,7 @@ export function RoomOfSciencebattle({ mission, onBack, onProceedToFinalStage }: 
             <div className="w-20 h-20 rounded-2xl bg-orange-500/20 flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-10 h-10 text-orange-400" />
             </div>
-            <h2 className="text-3xl text-white mb-2">Time's Up!</h2>
+            <h2 className="text-3xl text-white mb-2">Time&apos;s Up!</h2>
             <p className="text-gray-400 mb-8">
               You ran out of time before submitting your evidence comparison.
             </p>

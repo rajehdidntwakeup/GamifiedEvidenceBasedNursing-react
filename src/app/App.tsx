@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
-import { LandingPage } from "@/pages/landing-page/landing-page";
+
 import { AdminDashboard } from "@/pages/admin-dashboard/admin-dashboard";
+import { LandingPage } from "@/pages/landing-page/landing-page";
 import { AuthProvider, useAuth } from "@/services/auth-context";
 
 // Protected route component

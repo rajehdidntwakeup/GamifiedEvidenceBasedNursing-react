@@ -1,21 +1,24 @@
+import { Shield, Lock, Users, Brain, ChevronRight, User, LogOut } from "lucide-react";
+import { motion } from "motion/react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { motion } from "motion/react";
-import { Shield, Lock, Users, Brain, ChevronRight, User, LogOut } from "lucide-react";
-import { ImageWithFallback } from "./ImageWithFallback";
-import { MISSIONS } from "./landing-page.data";
-import { MissionGrid } from "./components/MissionGrid";
-import { MissionCard } from "./components/MissionCard";
-import { PasswordGate } from "./components/PasswordGate";
+
+import { PasswordGate } from "@/features/password-gate";
+import { useAuth } from "@/services/auth-context";
+import { adminApi } from "@/services/api";
+
 import { AuthModal } from "./components/AuthModal";
+import { MissionGrid } from "./components/MissionGrid";
 import { RoomRouter } from "./components/RoomRouter";
 import { useMissionState } from "./hooks/useMissionState";
-import { useAuth } from "@/services/auth-context";
-import type { LandingMission } from "./landing-page.data";
+import { ImageWithFallback } from "./ImageWithFallback";
+
 
 export function LandingPage() {
   const [state, actions] = useMissionState();
   const [showAuth, setShowAuth] = useState(false);
+  const [canRegister, setCanRegister] = useState(true);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
@@ -25,12 +28,39 @@ export function LandingPage() {
     navigate("/admin");
   };
 
+  const handleExitMission = () => {
+    sessionStorage.removeItem("activeMissionPassword");
+    actions.setActiveMission(null);
+    actions.setShowAdmin(false);
+    actions.setShowMissions(true);
+    actions.setCurrentRoom(1);
+  };
+
+  const handleLoginClick = async () => {
+    setAuthMode("login");
+    setIsCheckingAdmin(true);
+
+    try {
+      const hasAdmin = await adminApi.isThereAdmin();
+      setCanRegister(!hasAdmin);
+    } catch {
+      // Keep registration available if the check fails.
+      setCanRegister(true);
+    } finally {
+      setIsCheckingAdmin(false);
+      setShowAuth(true);
+    }
+  };
+
   // Show active mission room
   if (state.activeMission) {
     return (
       <RoomRouter
         currentRoom={state.currentRoom}
         showAdmin={state.showAdmin}
+        mission={state.activeMission}
+        onBack={handleExitMission}
+        onRoomChange={actions.setCurrentRoom}
       />
     );
   }
@@ -38,10 +68,27 @@ export function LandingPage() {
   // Show mission grid
   if (state.showMissions) {
     return (
-      <MissionGrid
-        onBack={() => actions.setShowMissions(false)}
-        onSelectMission={actions.handleMissionSelect}
-      />
+      <>
+        <MissionGrid
+          onBack={() => actions.setShowMissions(false)}
+          onSelectMission={actions.handleMissionSelect}
+        />
+        <PasswordGate
+          isOpen={!!state.pendingMission}
+          onClose={() => {
+            actions.setPendingMission(null);
+            actions.setMissionPassword("");
+            actions.setPasswordError(false);
+            actions.setPasswordErrorMessage(null);
+          }}
+          password={state.missionPassword}
+          onPasswordChange={actions.setMissionPassword}
+          onSubmit={actions.handlePasswordSubmit}
+          error={state.passwordError}
+          errorMessage={state.passwordErrorMessage}
+          isSubmitting={state.isUnlockingMission}
+        />
+      </>
     );
   }
 
@@ -54,14 +101,10 @@ export function LandingPage() {
         {/* Navigation */}
         <Navigation 
           onLoginClick={() => {
-            setAuthMode("login");
-            setShowAuth(true);
-          }}
-          onRegisterClick={() => {
-            setAuthMode("register");
-            setShowAuth(true);
+            void handleLoginClick();
           }}
           isAuthenticated={isAuthenticated}
+          isCheckingAdmin={isCheckingAdmin}
           user={user}
           onLogout={logout}
         />
@@ -75,6 +118,7 @@ export function LandingPage() {
         isOpen={showAuth}
         onClose={() => setShowAuth(false)}
         defaultMode={authMode}
+        canRegister={canRegister}
         onAuthSuccess={handleAuthSuccess}
       />
 
@@ -84,11 +128,14 @@ export function LandingPage() {
           actions.setPendingMission(null);
           actions.setMissionPassword("");
           actions.setPasswordError(false);
+          actions.setPasswordErrorMessage(null);
         }}
         password={state.missionPassword}
         onPasswordChange={actions.setMissionPassword}
         onSubmit={actions.handlePasswordSubmit}
         error={state.passwordError}
+        errorMessage={state.passwordErrorMessage}
+        isSubmitting={state.isUnlockingMission}
       />
     </>
   );
@@ -117,14 +164,14 @@ function Background() {
 
 function Navigation({ 
   onLoginClick, 
-  onRegisterClick,
   isAuthenticated,
+  isCheckingAdmin,
   user,
   onLogout
 }: { 
   onLoginClick: () => void;
-  onRegisterClick: () => void;
   isAuthenticated: boolean;
+  isCheckingAdmin: boolean;
   user: { username: string; role: string } | null;
   onLogout: () => void;
 }) {
@@ -159,15 +206,10 @@ function Navigation({
           <>
             <button
               onClick={onLoginClick}
-              className="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-white rounded-lg transition-colors"
+              disabled={isCheckingAdmin}
+              className="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 disabled:bg-teal-700/80 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
             >
-              Sign In
-            </button>
-            <button
-              onClick={onRegisterClick}
-              className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white border border-white/20 rounded-lg transition-colors"
-            >
-              Register
+              {isCheckingAdmin ? "Checking..." : "Sign In"}
             </button>
           </>
         )}
