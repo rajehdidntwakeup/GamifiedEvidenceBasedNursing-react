@@ -1,6 +1,6 @@
 import { X, UserPlus, LogIn } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useAuth } from "@/services/auth-context";
 
@@ -53,19 +53,9 @@ export function AuthModal({
   
   const { login, register, isLoading, error, clearError } = useAuth();
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    setMode(canRegister ? defaultMode : "login");
-    setLocalError(null);
-    clearError();
-  }, [isOpen, canRegister, defaultMode, clearError]);
-
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
     clearError();
@@ -169,7 +159,7 @@ export function AuthModal({
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleAuthSubmit}>
           <div className="space-y-4 mb-6">
             <div>
               <label htmlFor="auth-username" className="block text-sm text-gray-400 mb-2">Username</label>

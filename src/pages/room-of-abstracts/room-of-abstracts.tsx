@@ -15,9 +15,9 @@ import {
 import { motion } from "motion/react";
 import { useState, useEffect, useCallback } from "react";
 
-import { roomApi } from "@/services/api";
-import type { MissionApi, RoomOfAbstractsArticleDto } from "@/services/api";
+import type { RoomOfAbstractsArticleDto, MissionApi } from "@/services/api";
 
+import { roomOfAbstractsApi } from "./api";
 import { AHCPR_OPTIONS, PYRAMID_OPTIONS, STUDY_DESIGN_OPTIONS, TOTAL_TIME } from "./room-of-abstracts.data";
 import type { Article, RoomOfAbstractsProps, TableRow } from "./room-of-abstracts.data";
 
@@ -104,13 +104,25 @@ export function RoomOfAbstracts({ mission, onBack, onProceedToRoom3 }: RoomOfAbs
       return;
     }
 
-    const storedPassword = sessionStorage.getItem("activeMissionPassword")?.trim();
+    const storedTeamId = sessionStorage.getItem("activeTeamId");
+    const storedRoomId = sessionStorage.getItem("activeRoomId");
+    const teamId = storedTeamId ? Number(storedTeamId) : NaN;
+    const roomId = storedRoomId ? Number(storedRoomId) : NaN;
+
+    if (!Number.isInteger(teamId) || !Number.isInteger(roomId)) {
+      setArticles([]);
+      setTableData([]);
+      setArticlesError("No active mission found. Please select a mission first.");
+      setIsLoadingArticles(false);
+      return;
+    }
 
     try {
-      const apiArticles = await roomApi.getRoomOfAbstractsArticleList({
+      const apiArticles = await roomOfAbstractsApi.getArticles({
         gameId,
+        teamId,
+        roomId,
         mission: missionApi,
-        ...(storedPassword ? { password: storedPassword } : {}),
       });
 
       const mappedArticles = mapApiArticlesToRoomArticles(apiArticles);

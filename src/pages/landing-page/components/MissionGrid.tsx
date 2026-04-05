@@ -8,10 +8,23 @@ import { MissionCard } from "./MissionCard";
 
 interface MissionGridProps {
   onBack: () => void;
-  onSelectMission: (mission: LandingMission) => void;
+  onSelectMission: (mission: { id: number; apiMission: string }) => void;
+  missions?: string[]; // Optional mission titles from backend
 }
 
-export function MissionGrid({ onBack, onSelectMission }: MissionGridProps) {
+// Get mission data from MISSIONS array by title (matches backend response)
+function getMissionByTitle(title: string): LandingMission | undefined {
+  return MISSIONS.find(m => m.title === title);
+}
+
+export function MissionGrid({ onBack, onSelectMission, missions }: MissionGridProps) {
+  // Use backend missions if available, otherwise show all hardcoded missions
+  const availableMissions: LandingMission[] = missions && missions.length > 0
+    ? missions.filter(title => {
+        const mission = getMissionByTitle(title);
+        return mission !== undefined;
+      }).map(title => getMissionByTitle(title)!) : MISSIONS;
+
   return (
     <div className="fixed inset-0 z-50 bg-[#0a1f22]/95 backdrop-blur-md overflow-y-auto">
       {/* Grid overlay */}
@@ -53,9 +66,9 @@ export function MissionGrid({ onBack, onSelectMission }: MissionGridProps) {
 
         {/* Mission Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-          {MISSIONS.map((mission, index) => (
+          {availableMissions.map((mission, index) => (
             <MissionCard
-              key={mission.id}
+              key={mission.apiMission}
               mission={mission}
               onSelect={onSelectMission}
               index={index}

@@ -371,7 +371,7 @@ export const STUDY_PAIRS_BY_MISSION: Record<number, StudyPair> = {
         objective:
           "To evaluate the effectiveness of an automated UV-C disinfection system with electronic compliance monitoring in reducing CDI and other HAIs in ICU settings, controlling for manual cleaning quality.",
         methods:
-          "A parallel-group cluster-randomized trial across 20 ICUs in 10 hospitals (N=18,432 patient-days). ICUs randomized 1:1 to automated UV-C + standard cleaning (10 ICUs) or standard cleaning alone (10 ICUs) over 18 months. Electronic sensors monitored UV-C deployment compliance AND manual cleaning thoroughness (fluorescent marker removal) in both arms. Primary: HA-CDI rate. Secondary: MRSA, VRE, overall HAI rate, environmental bioburden. Assessors and infection control staff blinded to allocation. ITT analysis. Power calculation performed. Manual cleaning quality controlled as covariate.",
+          "A parallel-group cluster-randomized trial across 20 ICUs in 10 hospitals (10 ICUs with automated UV-C + standard cleaning, 10 ICUs with standard cleaning alone) over 18 months. Electronic sensors monitored UV-C deployment compliance AND manual cleaning thoroughness (fluorescent marker removal) in both arms. Primary: HA-CDI rate. Secondary: MRSA, VRE, overall HAI rate, environmental bioburden. Assessors and infection control staff blinded to allocation. ITT analysis. Power calculation performed. Manual cleaning quality controlled as covariate.",
         results:
           "HA-CDI decreased 39% in UV-C group (adjusted IRR=0.61, 95% CI: 0.47-0.79, p<0.001). MRSA decreased 28% (IRR=0.72, 95% CI: 0.56-0.93, p=0.012). Overall HAI rate reduced by 24% (p=0.003). UV-C compliance: 94% (automated deployment). Manual cleaning quality did not differ between groups (p=0.67), confirming UV-C as the active component. Environmental bioburden 71% lower in UV-C rooms. VRE: non-significant trend (IRR=0.81, p=0.09). Effect consistent across hospital types.",
         conclusion:
@@ -500,5 +500,3 @@ export const STUDY_PAIRS_BY_MISSION: Record<number, StudyPair> = {
 
 export const TOTAL_TIME = 20 * 60; // 20 minutes
 export const JUSTIFICATION_MIN_WORDS = 40;
-
-

@@ -1,11 +1,23 @@
 import { ChevronRight } from "lucide-react";
 import { motion } from "motion/react";
 
-import type { LandingMission } from "../landing-page.data";
+import type { MissionApi } from "@/services/api";
 
 interface MissionCardProps {
-  mission: LandingMission;
-  onSelect: (mission: LandingMission) => void;
+  mission: {
+    id: number;
+    title: string;
+    subtitle: string;
+    desc: string;
+    icon: React.ComponentType<{ className?: string }> | null;
+    xp: number;
+    color: string;
+    borderColor: string;
+    bgColor: string;
+    textColor: string;
+    apiMission: MissionApi;
+  };
+  onSelect: (mission: { id: number; apiMission: string }) => void;
   index: number;
 }
 
@@ -27,7 +39,7 @@ export function MissionCard({ mission, onSelect, index }: MissionCardProps) {
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className={`w-12 h-12 rounded-xl ${mission.bgColor} ${mission.borderColor} border flex items-center justify-center`}>
-            <Icon className={`w-6 h-6 ${mission.textColor}`} />
+            {Icon && <Icon className={`w-6 h-6 ${mission.textColor}`} />}
           </div>
           <span className={`font-[JetBrains_Mono,monospace] text-sm ${mission.textColor}`}>{mission.subtitle}</span>
         </div>

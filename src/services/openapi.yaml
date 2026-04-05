@@ -1,0 +1,862 @@
+openapi: 3.0.3
+info:
+  title: Gamified Evidence-Based Nursing API
+  description: |
+    RESTful API for the Gamified Evidence-Based Nursing application — a Spring Boot backend
+    that powers a gamified learning experience for nursing students. Teams progress through
+    themed rooms (Room of Knowledge, Room of Abstracts, Room of Analytics, Room of Science Battle)
+    answering evidence-based nursing questions.
+
+    ## Authentication
+    All endpoints require a valid JWT Bearer token in the `Authorization` header.
+    Tokens are obtained via the register or authenticate endpoints and expire after **1 hour**.
+
+    ## Game Flow
+    1. An admin **creates a game** — 5 teams (one per mission) are generated automatically.
+    2. Each team starts in status `READY` at location `START`.
+    3. Teams progress through rooms: `START` → `ROOM_OF_KNOWLEDGE` → `ROOM_OF_ABSTRACTS`
+       → `ROOM_OF_ANALYTICS` → `ROOM_OF_SCIENCE_BATTLE` → `LAST_QUIZ` → `END_STATE`.
+    4. In each room, teams retrieve and answer questions within a timer.
+
+    ## Error Handling
+    Error responses follow a consistent structure across all endpoints. Validation errors (400)
+    include field-level detail; authentication/authorization errors (401/403) return minimal
+    information to avoid leaking security details.
+
+    ## Naming Conventions
+    - URL paths use **kebab-case** (e.g., `/api/game/create`).
+    - Enum values use **UPPER_SNAKE_CASE**.
+    - JSON fields use **camelCase**.
+  version: 1.0.0
+  contact:
+    name: GamifiedEvidenceBasedNursing Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Authentication
+    description: User registration and login — public endpoints (no JWT required)
+  - name: Games
+    description: Game session lifecycle — create, query, and manage game sessions
+  - name: Admin
+    description: Admin operations — check for existing admins
+  - name: Landing Page
+    description: Landing page endpoints — check game status and show missions
+  - name: Entering Mission
+    description: Mission entry endpoints — teams enter the game with their chosen mission
+  - name: Room of Knowledge
+    description: Room of Knowledge specific endpoints — verify answers and get results
+  - name: Room of Abstracts
+    description: Room of Abstracts specific endpoints — verify answers and track progress
+  - name: Proceed to Next Room
+    description: Proceed to next room endpoints — advance to Room of Abstracts or Analytics
+
+paths:
+  # ──────────────────────────────────────────────
+  # Authentication
+  # ──────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: |
+        Creates a new user account and returns a JWT token.
+      operationId: register
+      requestBody:
+        description: Username and password for the new account
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+            example:
+              username: "nurse.jane"
+              password: "SecureP@ss123"
+      responses:
+        '200':
+          description: Registration successful — JWT token returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login as a user
+      description: |
+        Authenticates an existing user and returns a JWT token.
+      operationId: login
+      requestBody:
+        description: User credentials
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/authenticate:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate an existing user
+      description: |
+        Alias for `/auth/login`. Authenticates an existing user and returns a JWT token.
+      operationId: authenticate
+      requestBody:
+        description: User credentials
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user (API prefix)
+      description: |
+        Alias for `/auth/register`.
+      operationId: registerApi
+      requestBody:
+        description: User credentials
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login as a user (API prefix)
+      description: |
+        Alias for `/auth/login`.
+      operationId: loginApi
+      requestBody:
+        description: User credentials
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/authenticate:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate a user (API prefix)
+      description: |
+        Alias for `/auth/authenticate`.
+      operationId: authenticateApi
+      requestBody:
+        description: User credentials
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ──────────────────────────────────────────────
+  # Admin
+  # ──────────────────────────────────────────────
+  /api/admin/isThereAdmin:
+    get:
+      tags:
+        - Admin
+      summary: Check if any administrator exists
+      description: |
+        Returns true if at least one administrator exists in the system.
+      operationId: isThereAdmin
+      responses:
+        '200':
+          description: Status retrieved
+          content:
+            application/json:
+              schema:
+                type: boolean
+              example: true
+
+  # ──────────────────────────────────────────────
+  # Games
+  # ──────────────────────────────────────────────
+  /api/game/create:
+    post:
+      tags:
+        - Games
+      summary: Create a new game session
+      description: |
+        Initialises a new game session.
+      operationId: createGame
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Game session configuration
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameRequest'
+            example:
+              password: "GameRoom42"
+      responses:
+        '200':
+          description: Game session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponseDto'
+              example:
+                gameId: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ──────────────────────────────────────────────
+  # Landing Page
+  # ──────────────────────────────────────────────
+  /api/game/landing:
+    get:
+      tags:
+        - Landing Page
+      summary: Check if a game is currently running
+      description: |
+        Returns true if there is at least one game session that has started and not yet finished.
+      operationId: isGameRunning
+      responses:
+        '200':
+          description: Status retrieved
+          content:
+            application/json:
+              schema:
+                type: boolean
+              example: true
+
+  /api/game/landing/missions:
+    get:
+      tags:
+        - Landing Page
+      summary: Get available missions for landing page
+      description: |
+        Returns a list of available missions for team selection.
+      operationId: showMissions
+      responses:
+        '200':
+          description: Missions retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandingPageResponse'
+              example:
+                gameId: 1
+                missions:
+                  - missionId: 1
+                    missionName: "Wound Care for Pressure Ulcers"
+                  - missionId: 2
+                    missionName: "Fall Prevention in Geriatrics"
+
+  # ──────────────────────────────────────────────
+  # Entering Mission
+  # ──────────────────────────────────────────────
+  /api/game/mission/enter:
+    post:
+      tags:
+        - Entering Mission
+      summary: Enter the game with a mission
+      description: |
+        Allows a team to enter the game by selecting their mission.
+      operationId: enterMission
+      requestBody:
+        description: Mission entry request
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnteringGameRequest'
+            example:
+              password: "GameRoom42"
+              gameId: 1
+              missionId: 1
+      responses:
+        '200':
+          description: Successfully entered mission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnteringGameResponse'
+              example:
+                missionId: 1
+                roomId: 1
+                questions:
+                  - questionId: 1
+                    question: "What is the primary sign of a pressure ulcer?"
+                    answers:
+                      - answerId: 1
+                        answer: "Redness"
+                      - answerId: 2
+                        answer: "Blue tint"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ──────────────────────────────────────────────
+  # Room of Knowledge
+  # ──────────────────────────────────────────────
+  /api/rooms/roomofknowledge/isTheAnswerCorrect:
+    put:
+      tags:
+        - Room of Knowledge
+      summary: Verify if an answer is correct (Room of Knowledge)
+      description: |
+        Checks if a selected answer is correct for Room of Knowledge.
+      operationId: isTheAnswerCorrect
+      requestBody:
+        description: Answer verification request
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyAnswerDto'
+            example:
+              questionId: 1
+              answerId: 1
+              roomId: 1
+      responses:
+        '200':
+          description: Answer verification result
+          content:
+            application/json:
+              schema:
+                type: boolean
+              example: true
+
+  /api/rooms/roomofknowledge/question/{questionId}/answer/{answerId}:
+    get:
+      tags:
+        - Room of Knowledge
+      summary: Verify if an answer is correct for a specific question (Room of Knowledge)
+      description: |
+        Checks if a selected answer is correct for a given question in the Room of Knowledge.
+      operationId: verifyAnswer
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          description: ID of the question
+          schema:
+            type: integer
+            format: int64
+            example: 1
+        - name: answerId
+          in: path
+          required: true
+          description: ID of the answer
+          schema:
+            type: integer
+            format: int64
+            example: 1
+      responses:
+        '200':
+          description: Answer verification result
+          content:
+            application/json:
+              schema:
+                type: boolean
+              example: true
+
+  /api/rooms/roomofknowledge/getResult:
+    get:
+      tags:
+        - Room of Knowledge
+      summary: Get result for Room of Knowledge
+      description: |
+        Returns the result for the Room of Knowledge room including progress and key.
+      operationId: getResult
+      parameters:
+        - name: roomId
+          in: query
+          required: true
+          description: ID of the room
+          schema:
+            type: integer
+            format: int64
+            example: 1
+      responses:
+        '200':
+          description: Room result retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultDto'
+              example:
+                progress: 80
+                key: "KEY-123"
+
+  # ──────────────────────────────────────────────
+  # Room of Abstracts
+  # ──────────────────────────────────────────────
+  /api/rooms/roomofabstracts/verify:
+    post:
+      tags:
+        - Room of Abstracts
+      summary: Verify answers for Room of Abstracts
+      description: |
+        Verifies the team's selected answers for the Room of Abstracts.
+      operationId: verifyRoomOfAbstractsAnswers
+      requestBody:
+        description: Verify answers request for Room of Abstracts
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRoomOfAbstractsAnswersDto'
+            example:
+              roomId: 1
+              missionId: 1
+              answers:
+                - questionId: 1
+                  answerId: 1
+                - questionId: 2
+                  answerId: 2
+      responses:
+        '200':
+          description: Answers verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultDto'
+              example:
+                progress: 100
+                key: "SECRET-KEY"
+
+  # ──────────────────────────────────────────────
+  # Proceed to Next Room
+  # ──────────────────────────────────────────────
+  /api/game/proceed:
+    post:
+      tags:
+        - Proceed to Next Room
+      summary: Proceed to the next room
+      description: |
+        Advances a team from Room of Knowledge to Room of Abstracts.
+      operationId: proceedToNextRoom
+      requestBody:
+        description: Proceed request
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProceedDto'
+            example:
+              roomId: 1
+      responses:
+        '200':
+          description: Proceeded to next room successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomOfAbstractsResponseDto'
+              example:
+                roomId: 2
+                missionId: 1
+                mainQuestion: "Welcome to Room of Abstracts"
+                images:
+                  - "/images/abstracts.jpg"
+                questions:
+                  - questionId: 1
+                    question: "What is the main topic?"
+                    answers:
+                      - "Topic A"
+                      - "Topic B"
+                      - "Topic C"
+                      - "Topic D"
+
+# ════════════════════════════════════════════════
+# Reusable Components
+# ════════════════════════════════════════════════
+components:
+  # ── Security Schemes ──────────────────────────
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from `/auth/register` or `/auth/authenticate`.
+        Include in the `Authorization` header as `Bearer <token>`.
+        Tokens expire after 1 hour (3 600 000 ms).
+
+  # ── Reusable Responses ────────────────────────
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Missing or invalid JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  # ── Schemas ───────────────────────────────────
+  schemas:
+    # ── Authentication ──────────────────────────
+    AuthRequest:
+      type: object
+      description: Credentials for user registration or authentication
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Unique username for the account
+          example: "nurse.jane"
+        password:
+          type: string
+          format: password
+          description: Account password
+          example: "SecureP@ss123"
+
+    AuthResponse:
+      type: object
+      description: Authentication result containing a JWT token and role information
+      properties:
+        token:
+          type: string
+          description: JWT Bearer token
+          example: "eyJhbGciOiJIUzI1NiJ9..."
+        admin:
+          type: boolean
+          description: Whether the authenticated user has the ADMIN role
+          example: true
+
+    # ── Game ────────────────────────────────────
+    CreateGameRequest:
+      type: object
+      description: Request body for creating a new game session
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          description: Game session password
+          example: "GameRoom42"
+
+    GameResponseDto:
+      type: object
+      description: Response after creating a new game session
+      properties:
+        gameId:
+          type: integer
+          format: int64
+          description: Unique identifier of the created game
+          example: 1
+
+    # ── Landing Page ────────────────────────────
+    LandingPageResponse:
+      type: object
+      description: Response containing available missions
+      properties:
+        gameId:
+          type: integer
+          format: int64
+          example: 1
+        missions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissionDto'
+
+    MissionDto:
+      type: object
+      properties:
+        missionId:
+          type: integer
+          format: int64
+          example: 1
+        missionName:
+          type: string
+          example: "Wound Care for Pressure Ulcers"
+
+    # ── Entering Mission ────────────────────────
+    EnteringGameRequest:
+      type: object
+      required:
+        - password
+        - gameId
+        - missionId
+      properties:
+        password:
+          type: string
+          example: "GameRoom42"
+        gameId:
+          type: integer
+          format: int64
+          example: 1
+        missionId:
+          type: integer
+          format: int64
+          example: 1
+
+    EnteringGameResponse:
+      type: object
+      properties:
+        missionId:
+          type: integer
+          format: int64
+          example: 1
+        roomId:
+          type: integer
+          format: int64
+          example: 1
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomOfKnowledgeQuestionsDto'
+
+    RoomOfKnowledgeQuestionsDto:
+      type: object
+      properties:
+        questionId:
+          type: integer
+          format: int64
+          example: 1
+        question:
+          type: string
+          example: "What is the primary sign of a pressure ulcer?"
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerDto'
+
+    AnswerDto:
+      type: object
+      properties:
+        answerId:
+          type: integer
+          format: int64
+          example: 1
+        answer:
+          type: string
+          example: "Redness"
+
+    # ── Room of Knowledge ───────────────────────
+    VerifyAnswerDto:
+      type: object
+      required:
+        - questionId
+        - answerId
+        - roomId
+      properties:
+        questionId:
+          type: integer
+          format: int64
+          example: 1
+        answerId:
+          type: integer
+          format: int64
+          example: 1
+        roomId:
+          type: integer
+          format: int64
+          example: 1
+
+    # ── Room of Abstracts ───────────────────────
+    VerifyRoomOfAbstractsAnswersDto:
+      type: object
+      description: Request to verify answers for Room of Abstracts
+      required:
+        - roomId
+        - missionId
+        - answers
+      properties:
+        roomId:
+          type: integer
+          format: int64
+          description: ID of the room
+          example: 1
+        missionId:
+          type: integer
+          format: int64
+          description: ID of the mission
+          example: 1
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionAnswerDto'
+
+    QuestionAnswerDto:
+      type: object
+      description: A single question-answer pair
+      required:
+        - questionId
+        - answerId
+      properties:
+        questionId:
+          type: integer
+          format: int64
+          example: 1
+        answerId:
+          type: integer
+          format: int64
+          example: 1
+
+    ResultDto:
+      type: object
+      description: Result of answer verification
+      properties:
+        progress:
+          type: integer
+          format: int32
+          description: Progress percentage (0-100)
+          example: 100
+        key:
+          type: string
+          nullable: true
+          description: The room key if progress is 100%, null otherwise
+          example: "SECRET-KEY"
+
+    # ── Proceed to Next Room ────────────────────
+    ProceedDto:
+      type: object
+      required:
+        - roomId
+      properties:
+        roomId:
+          type: integer
+          format: int64
+          description: ID of the current room
+          example: 1
+
+    RoomOfAbstractsResponseDto:
+      type: object
+      description: Response for proceeding to Room of Abstracts
+      properties:
+        roomId:
+          type: integer
+          format: int64
+          example: 2
+        missionId:
+          type: integer
+          format: int64
+          example: 1
+        mainQuestion:
+          type: string
+          example: "Welcome to Room of Abstracts"
+        images:
+          type: array
+          items:
+            type: string
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TableQuestionDto'
+
+    TableQuestionDto:
+      type: object
+      properties:
+        questionId:
+          type: integer
+          format: int64
+          example: 1
+        question:
+          type: string
+          example: "What is the main topic?"
+        answers:
+          type: array
+          items:
+            type: string
+            example: "Topic A"
+
+    # ── Error ───────────────────────────────────
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-03-24T10:00:00Z"
+        status:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: "Bad Request"
+        message:
+          type: string
+          example: "Validation failed"
+        path:
+          type: string
+          example: "/api/games"

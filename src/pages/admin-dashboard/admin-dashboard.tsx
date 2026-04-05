@@ -23,7 +23,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import React from "react";
 
-import { gameApi, type CreateGameResponse } from "@/services/api";
+import { gameApi, type GameResponseDto } from "@/services/api";
 
 import { MOCK_ACTIVE_TEAMS, MOCK_PAST_GAMES, ROOMS, formatTime, getTimeColor } from "./admin-dashboard.data";
 import type { ActiveTeam, SortDir, SortField, Tab, TimeoutAlert } from "./admin-dashboard.data";
@@ -47,7 +47,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [newGamePassword, setNewGamePassword] = useState("");
   const [isCreatingGame, setIsCreatingGame] = useState(false);
   const [createGameError, setCreateGameError] = useState<string | null>(null);
-  const [createGameResponse, setCreateGameResponse] = useState<CreateGameResponse | null>(null);
+  const [createGameResponse, setCreateGameResponse] = useState<GameResponseDto | null>(null);
   const alertedTeamsRef = useRef<Set<string>>(new Set());
 
   // Countdown timer — ticks every second
@@ -221,7 +221,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
   const teamsCompleted = activeTeams.filter((t) => t.currentRoom === 6).length;
   const teamsTimedOut = activeTeams.filter((t) => t.timedOut).length;
   const activeAlerts = timeoutAlerts.filter((a) => !a.dismissed);
-  const missionAssignmentCount = createGameResponse ? Object.keys(createGameResponse.teamMissions).length : 0;
+  const missionAssignmentCount = createGameResponse?.teamMissions ? Object.keys(createGameResponse.teamMissions).length : 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]">

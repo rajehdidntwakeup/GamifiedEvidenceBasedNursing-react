@@ -1,185 +1,264 @@
 /**
- * API configuration and utility functions for backend integration.
- * Base URL: http://localhost:8080/api
+ * API exports - Main entry point for API functionality
+ * This file re-exports from feature-specific API modules
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-
-/**
- * Generic fetch wrapper with error handling.
- */
-async function fetchApi<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const token = localStorage.getItem("token");
-  
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || `HTTP ${response.status}`);
-  }
-
-  return response.json() as Promise<T>;
-}
+import { fetchApi } from "./api/client";
 
 // ============== AUTH API ==============
-
-export interface AuthRequest {
-  username: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  username: string;
-  role: string;
-}
+// Public endpoints (no JWT required) - /auth/* paths
 
 export const authApi = {
-  login: (credentials: AuthRequest) => 
-    fetchApi<AuthResponse>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-  
-  register: (credentials: AuthRequest) =>
+  /**
+   * Register a new user
+   * Path: /auth/register
+   */
+  register: (credentials: { username: string; password: string }) =>
     fetchApi<AuthResponse>("/auth/register", {
       method: "POST",
       body: JSON.stringify(credentials),
     }),
+
+  /**
+   * Login as a user
+   * Path: /auth/login
+   */
+  login: (credentials: { username: string; password: string }) =>
+    fetchApi<AuthResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    }),
+
+  /**
+   * Authenticate an existing user (alias for login)
+   * Path: /auth/authenticate
+   */
+  authenticate: (credentials: { username: string; password: string }) =>
+    fetchApi<AuthResponse>("/auth/authenticate", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    }),
+};
+
+// ============== AUTH API (with /api prefix) ==============
+// Admin-only endpoints - /api/auth/* paths
+
+export const apiAuthApi = {
+  /**
+   * Register a new user (API prefix)
+   * Path: /api/auth/register
+   */
+  register: (credentials: { username: string; password: string }) =>
+    fetchApi<AuthResponse>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    }),
+
+  /**
+   * Login as a user (API prefix)
+   * Path: /api/auth/login
+   */
+  login: (credentials: { username: string; password: string }) =>
+    fetchApi<AuthResponse>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    }),
+
+  /**
+   * Authenticate a user (API prefix)
+   * Path: /api/auth/authenticate
+   */
+  authenticate: (credentials: { username: string; password: string }) =>
+    fetchApi<AuthResponse>("/api/auth/authenticate", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    }),
+};
+
+// ============== ADMIN API ==============
+
+export const adminApi = {
+  /**
+   * Check if any administrator exists
+   * Path: /api/admin/isThereAdmin
+   */
+  isThereAdmin: () => fetchApi<boolean>("/api/admin/isThereAdmin"),
 };
 
 // ============== GAME API ==============
 
-export interface CreateGameRequest {
-  password: string;
-}
-
-export interface CreateGameResponse {
-  gameId: number;
-  teamMissions: Record<string, number>;
-}
-
-export interface GameResult {
-  gameId: number;
-  startTime: string;
-  endTime: string;
-  durationMinutes: number;
-  winnerId: number | null;
-  winnerName: string | null;
-  teamResults: TeamResult[];
-}
-
-export interface TeamResult {
-  teamId: number;
-  teamName: string;
-  score: number;
-  completionTimeMinutes: number;
-  isWinner: boolean;
-  finalRanking: number;
-}
-
 export const gameApi = {
-  create: (request: CreateGameRequest) =>
-    fetchApi<CreateGameResponse>("/game/create", {
+  /**
+   * Create a new game session
+   * Path: /api/game/create
+   */
+  create: (request: { password: string }) =>
+    fetchApi<GameResponseDto>("/api/game/create", {
       method: "POST",
       body: JSON.stringify(request),
     }),
-  
-  getResults: (gameId: number) =>
-    fetchApi<GameResult>(`/completion/games/${gameId}/results`),
-    
-  checkCompletion: (gameId: number) =>
-    fetchApi<GameResult | null>(`/completion/games/${gameId}/check`),
-    
-  getWinner: (gameId: number) =>
-    fetchApi<{ teamId: number; teamName: string; finalScore: number }>(`/completion/games/${gameId}/winner`),
+
+  /**
+   * Check if a game is currently running
+   * Path: /api/game/landing
+   */
+  landing: () => fetchApi<boolean>("/api/game/landing"),
+
+  /**
+   * Get available missions for landing page
+   * Path: /api/game/landing/missions
+   */
+  getLandingMissions: () => fetchApi<LandingPageResponse>("/api/game/landing/missions"),
 };
 
-// ============== TEAM API ==============
+// ============== ENTERING MISSION API ==============
 
-export interface TeamDto {
-  id: number;
-  mission: string;
-  status: string;
-  location: string;
-  isWinner: boolean;
+export const enteringMissionApi = {
+  /**
+   * Enter the game with a mission
+   * Path: /api/game/mission/enter
+   */
+  enter: (request: {
+    password: string;
+    gameId: number;
+    missionId: number;
+  }) =>
+    fetchApi<EnteringGameResponse>("/api/game/mission/enter", {
+      method: "POST",
+      body: JSON.stringify(request),
+    }),
+};
+
+// ============== ROOM OF KNOWLEDGE API ==============
+
+export interface VerifyAnswerDto {
+  questionId: number;
+  answerId: number;
+  roomId: number;
+}
+
+export interface ResultDto {
+  progress: number;
+  key: string | null;
+}
+
+export const roomOfKnowledgeApi = {
+  /**
+   * Verify if an answer is correct using path-based endpoint
+   * Path: /api/rooms/roomofknowledge/question/{questionId}/answer/{answerId}
+   */
+  verifyAnswer: (questionId: number, answerId: number) =>
+    fetchApi<boolean>(`/api/rooms/roomofknowledge/question/${questionId}/answer/${answerId}`),
+
+  /**
+   * Get result for Room of Knowledge
+   * Path: /api/rooms/roomofknowledge/getResult
+   */
+  getResult: (roomId: number) => {
+    const query = new URLSearchParams({ roomId: String(roomId) }).toString();
+    return fetchApi<ResultDto>(`/api/rooms/roomofknowledge/getResult?${query}`);
+  },
+};
+
+// ============== ROOM OF ABSTRACTS API ==============
+
+export interface VerifyRoomOfAbstractsAnswersDto {
+  roomId: number;
+  missionId: number;
+  answers: QuestionAnswerDto[];
+}
+
+export const roomOfAbstractsApi = {
+  /**
+   * Verify answers for Room of Abstracts
+   * Path: /api/rooms/roomofabstracts/verify
+   */
+  verifyAnswers: (request: VerifyRoomOfAbstractsAnswersDto) =>
+    fetchApi<ResultDto>("/api/rooms/roomofabstracts/verify", {
+      method: "POST",
+      body: JSON.stringify(request),
+    }),
+};
+
+// ============== PROCEED TO NEXT ROOM API ==============
+
+export interface ProceedDto {
+  roomId: number;
+}
+
+export interface RoomOfAbstractsResponseDto {
+  roomId: number;
+  missionId: number;
+  mainQuestion: string;
+  images: string[];
+  questions: TableQuestionDto[];
+}
+
+export interface TableQuestionDto {
+  questionId: number;
+  question: string;
+  answers: string[];
+}
+
+export const proceedApi = {
+  /**
+   * Proceed to the next room
+   * Path: /api/game/proceed
+   */
+  toNextRoom: (request: ProceedDto) =>
+    fetchApi<RoomOfAbstractsResponseDto>("/api/game/proceed", {
+      method: "POST",
+      body: JSON.stringify(request),
+    }),
+};
+
+// ============== TYPES ==============
+
+export interface AuthResponse {
+  token: string;
+  admin: boolean;
+}
+
+export interface GameResponseDto {
   gameId: number;
+  teamMissions?: Record<string, string>;
 }
 
-export interface TeamProgress {
-  teamId: number;
-  teamName: string;
-  currentLocation: string;
-  status: string;
-  score: number;
-  timerRemaining: number | null;
-  currentQuestion: string | null;
-  isWinner: boolean;
-  timestamp: string;
+export interface LandingPageResponse {
+  gameId: number;
+  missions: MissionDto[];
 }
 
-export const teamApi = {
-  getById: (teamId: number) =>
-    fetchApi<TeamDto>(`/teams/${teamId}`),
-    
-  getByGame: (gameId: number) =>
-    fetchApi<TeamDto[]>(`/teams/game/${gameId}`),
-    
-  getProgress: (teamId: number) =>
-    fetchApi<TeamProgress>(`/teams/${teamId}/progress`),
-    
-  completeGame: (teamId: number) =>
-    fetchApi<{ teamId: number; finalScore: number; completionTimeMinutes: number }>(
-      `/completion/teams/${teamId}/complete`,
-      { method: "POST" }
-    ),
-};
-
-// ============== ROOM API ==============
-
-export interface QuestionDto {
-  id: number;
-  title: string;
-  image: string | null;
-  answers: { id: number; text: string }[];
+export interface MissionDto {
+  missionId: number;
+  missionName: string;
 }
 
-export interface RoomStatus {
+export interface EnteringGameResponse {
+  missionId: number;
   roomId: number;
-  location: string;
-  status: string;
-  timerRemaining: number;
-  totalQuestions: number;
-  answeredQuestions: number;
-  questions: QuestionDto[];
-  isComplete: boolean;
+  questions: RoomOfKnowledgeQuestionDto[];
 }
 
-export interface SubmitAnswerRequest {
-  teamId: number;
-  roomId: number;
+export interface RoomOfKnowledgeQuestionDto {
+  questionId: number;
+  question: string;
+  answers: AnswerDto[];
+}
+
+export interface AnswerDto {
+  answerId: number;
+  answer: string;
+  isCorrect?: boolean;
+  correct?: boolean;
+}
+
+export interface QuestionAnswerDto {
   questionId: number;
   answerId: number;
 }
 
-export interface SubmitAnswerResponse {
-  correct: boolean;
-  pointsEarned: number;
-  newTotalScore: number;
-  feedback: string;
-  roomCompleted: boolean;
-  nextQuestionId: number | null;
-}
+// ============== MISSION API TYPE ==============
 
 export type MissionApi =
   | "WOUND_CARE_FOR_PRESSURE_ULCERS"
@@ -188,23 +267,7 @@ export type MissionApi =
   | "NUTRITIONAL_INTERVENTIONS_FOR_MALNUTRITION"
   | "PREVENTION_OF_CATHETER_ASSOCIATED_URINARY_TRACT_INFECTIONS";
 
-export interface RoomOfKnowledgeAnswerDto {
-  answer: string;
-  isCorrect?: boolean;
-  correct?: boolean;
-}
-
-export interface RoomOfKnowledgeQuestionDto {
-  question: string;
-  answers: RoomOfKnowledgeAnswerDto[];
-}
-
-export interface RoomOfAbstractsCorrectAnswersDto {
-  titleAuthor: string;
-  pyramid: string;
-  ahcpr: string;
-  studyDesign: string;
-}
+// ============== ROOM OF ABSTRACTS TYPES ==============
 
 export interface RoomOfAbstractsArticleDto {
   id: number;
@@ -216,155 +279,9 @@ export interface RoomOfAbstractsArticleDto {
   correctAnswers: RoomOfAbstractsCorrectAnswersDto;
 }
 
-export const roomApi = {
-  getRoomOfKnowledgeQuestionList: ({
-    gameId,
-    mission,
-    password,
-  }: {
-    gameId: number;
-    mission: MissionApi;
-    password?: string;
-  }) => {
-    const query = new URLSearchParams({
-      gameId: String(gameId),
-      mission,
-      ...(password ? { password } : {}),
-    }).toString();
-    return fetchApi<RoomOfKnowledgeQuestionDto[]>(`/rooms/room-of-knowledge?${query}`);
-  },
-
-  getRoomOfAbstractsArticleList: ({
-    gameId,
-    mission,
-    password,
-  }: {
-    gameId: number;
-    mission: MissionApi;
-    password?: string;
-  }) => {
-    const query = new URLSearchParams({
-      gameId: String(gameId),
-      mission,
-      ...(password ? { password } : {}),
-    }).toString();
-    return fetchApi<RoomOfAbstractsArticleDto[]>(`/rooms/room-of-abstracts?${query}`);
-  },
-
-  getStatus: (roomId: number, teamId: number) =>
-    fetchApi<RoomStatus>(`/rooms/${roomId}/status?teamId=${teamId}`),
-    
-  getQuestions: (roomId: number, teamId: number) =>
-    fetchApi<QuestionDto[]>(`/rooms/${roomId}/questions?teamId=${teamId}`),
-    
-  submitAnswer: (roomId: number, request: SubmitAnswerRequest) =>
-    fetchApi<SubmitAnswerResponse>(`/rooms/${roomId}/submit-answer`, {
-      method: "POST",
-      body: JSON.stringify(request),
-    }),
-    
-  getHint: (roomId: number, teamId: number, questionId: number) =>
-    fetchApi<string>(`/rooms/${roomId}/questions/${questionId}/hint?teamId=${teamId}`, {
-      method: "POST",
-    }),
-    
-  skipQuestion: (roomId: number, teamId: number, questionId: number) =>
-    fetchApi<RoomStatus>(`/rooms/${roomId}/questions/${questionId}/skip?teamId=${teamId}`, {
-      method: "POST",
-    }),
-};
-
-// ============== LEADERBOARD API ==============
-
-export interface LeaderboardEntry {
-  teamId: number;
-  teamName: string;
-  mission: string;
-  rank: number;
-  score: number;
-  totalQuestions: number;
-  correctAnswers: number;
-  hintsUsed: number;
-  completionTimeMinutes: number;
-  accuracyPercentage: number;
-  isCurrentUser: boolean;
-  status: string;
+export interface RoomOfAbstractsCorrectAnswersDto {
+  titleAuthor: string;
+  pyramid: string;
+  ahcpr: string;
+  studyDesign: string;
 }
-
-export const leaderboardApi = {
-  getGameLeaderboard: (gameId: number) =>
-    fetchApi<LeaderboardEntry[]>(`/leaderboard/games/${gameId}`),
-    
-  getTopTeams: (gameId: number, limit: number = 10) =>
-    fetchApi<LeaderboardEntry[]>(`/leaderboard/games/${gameId}/top?limit=${limit}`),
-    
-  getGlobalLeaderboard: () =>
-    fetchApi<LeaderboardEntry[]>("/leaderboard/global"),
-    
-  getMissionLeaderboard: (mission: string) =>
-    fetchApi<LeaderboardEntry[]>(`/leaderboard/global/mission/${mission}`),
-    
-  getMyPosition: (gameId: number, teamId: number) =>
-    fetchApi<LeaderboardEntry>(`/leaderboard/games/${gameId}/my-position?teamId=${teamId}`),
-};
-
-// ============== ADMIN API ==============
-
-export interface AdminGame {
-  id: number;
-  password: string;
-  beginTime: string;
-  endTime: string | null;
-  status: string;
-  teamCount: number;
-  activeTeams: number;
-  completedTeams: number;
-  teams: AdminTeamSummary[];
-  winnerId: number | null;
-  winnerName: string | null;
-}
-
-export interface AdminTeamSummary {
-  teamId: number;
-  mission: string;
-  status: string;
-  score: number;
-}
-
-export const adminApi = {
-  isThereAdmin: () =>
-    fetchApi<boolean>("/admin/isThereAdmin"),
-
-  getAllGames: () =>
-    fetchApi<AdminGame[]>("/admin/games"),
-    
-  getGame: (gameId: number) =>
-    fetchApi<AdminGame>(`/admin/games/${gameId}`),
-    
-  deleteGame: (gameId: number) =>
-    fetchApi<void>(`/admin/games/${gameId}`, { method: "DELETE" }),
-    
-  startGame: (gameId: number) =>
-    fetchApi<AdminGame>(`/admin/games/${gameId}/start`, { method: "POST" }),
-    
-  endGame: (gameId: number) =>
-    fetchApi<AdminGame>(`/admin/games/${gameId}/end`, { method: "POST" }),
-    
-  getGameTeams: (gameId: number) =>
-    fetchApi<TeamDto[]>(`/admin/games/${gameId}/teams`),
-    
-  resetTeam: (gameId: number, teamId: number) =>
-    fetchApi<TeamDto>(`/admin/games/${gameId}/teams/${teamId}/reset`, { method: "POST" }),
-    
-  exportResults: (gameId: number) =>
-    fetchApi<string>(`/admin/games/${gameId}/export`),
-};
-
-export default {
-  auth: authApi,
-  game: gameApi,
-  team: teamApi,
-  room: roomApi,
-  leaderboard: leaderboardApi,
-  admin: adminApi,
-};

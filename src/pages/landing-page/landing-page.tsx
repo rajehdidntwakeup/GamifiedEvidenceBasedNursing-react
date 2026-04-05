@@ -1,11 +1,12 @@
 import { Shield, Lock, Users, Brain, ChevronRight, User, LogOut } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 
 import { PasswordGate } from "@/features/password-gate";
+import { adminApi, gameApi } from "@/services/api";
+import type { AuthResponse, MissionDto } from "@/services/api";
 import { useAuth } from "@/services/auth-context";
-import { adminApi } from "@/services/api";
 
 import { AuthModal } from "./components/AuthModal";
 import { MissionGrid } from "./components/MissionGrid";
@@ -14,14 +15,30 @@ import { useMissionState } from "./hooks/useMissionState";
 import { ImageWithFallback } from "./ImageWithFallback";
 
 
+
 export function LandingPage() {
   const [state, actions] = useMissionState();
   const [showAuth, setShowAuth] = useState(false);
   const [canRegister, setCanRegister] = useState(true);
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const { user, isAuthenticated, logout } = useAuth();
+  const [isGameRunning, setIsGameRunning] = useState<boolean | null>(null);
+  const [landingData, setLandingData] = useState<{ gameId: number; missions: MissionDto[] } | null>(null);
+  const authUser = useAuth();
   const navigate = useNavigate();
+
+  // Check if a game is running on mount
+  useEffect(() => {
+    const checkGameStatus = async () => {
+      try {
+        const running = await gameApi.landing();
+        setIsGameRunning(running);
+      } catch {
+        setIsGameRunning(false);
+      }
+    };
+    checkGameStatus();
+  }, []);
 
   const handleAuthSuccess = () => {
     // Redirect to admin dashboard after successful login/register
@@ -72,6 +89,7 @@ export function LandingPage() {
         <MissionGrid
           onBack={() => actions.setShowMissions(false)}
           onSelectMission={actions.handleMissionSelect}
+          missions={landingData?.missions.map(m => m.missionName) || undefined}
         />
         <PasswordGate
           isOpen={!!state.pendingMission}
@@ -99,18 +117,32 @@ export function LandingPage() {
         <Background />
 
         {/* Navigation */}
-        <Navigation 
+        <Navigation
           onLoginClick={() => {
             void handleLoginClick();
           }}
-          isAuthenticated={isAuthenticated}
+          isAuthenticated={authUser.isAuthenticated}
           isCheckingAdmin={isCheckingAdmin}
-          user={user}
-          onLogout={logout}
+          user={authUser.user}
+          onLogout={authUser.logout}
         />
 
         {/* Hero Section */}
-        <HeroSection onBeginMission={() => actions.setShowMissions(true)} />
+        <HeroSection
+          onBeginMission={() => {
+            void (async () => {
+              try {
+                const data = await gameApi.getLandingMissions();
+                setLandingData({ gameId: data.gameId, missions: data.missions });
+                actions.setShowMissions(true);
+              } catch {
+                // Fallback to hardcoded missions if API fails
+                actions.setShowMissions(true);
+              }
+            })();
+          }}
+          isGameRunning={isGameRunning}
+        />
       </div>
 
       {/* Auth Modal */}
@@ -162,17 +194,17 @@ function Background() {
   );
 }
 
-function Navigation({ 
-  onLoginClick, 
+function Navigation({
+  onLoginClick,
   isAuthenticated,
   isCheckingAdmin,
   user,
   onLogout
-}: { 
+}: {
   onLoginClick: () => void;
   isAuthenticated: boolean;
   isCheckingAdmin: boolean;
-  user: { username: string; role: string } | null;
+  user: { username: string; role: string } | AuthResponse | null;
   onLogout: () => void;
 }) {
   return (
@@ -187,12 +219,16 @@ function Navigation({
       </div>
       
       <div className="flex items-center gap-3">
-        {isAuthenticated ? (
+        {isAuthenticated && user ? (
           <>
             <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-lg">
               <User className="w-4 h-4 text-teal-400" />
-              <span className="text-sm text-gray-300">{user?.username}</span>
-              <span className="text-xs text-teal-400 bg-teal-500/20 px-2 py-0.5 rounded">{user?.role}</span>
+              <span className="text-sm text-gray-300">
+                {typeof user === 'object' && 'username' in user ? (user as { username: string }).username : 'User'}
+              </span>
+              <span className="text-xs text-teal-400 bg-teal-500/20 px-2 py-0.5 rounded">
+                {typeof user === 'object' && 'role' in user ? (user as { role: string }).role : (user as { admin: boolean })?.admin ? 'Admin' : 'User'}
+              </span>
             </div>
             <button
               onClick={onLogout}
@@ -218,7 +254,7 @@ function Navigation({
   );
 }
 
-function HeroSection({ onBeginMission }: { onBeginMission: () => void }) {
+function HeroSection({ onBeginMission, isGameRunning }: { onBeginMission: () => void; isGameRunning: boolean | null }) {
   const features = [
     { icon: Brain, title: "Clinical Puzzles", desc: "Solve PICO-based challenges and interpret research studies to unlock clues", color: "text-teal-400" },
     { icon: Users, title: "Team Collaboration", desc: "Work with peers in real-time to analyze evidence and make clinical decisions", color: "text-orange-400" },
@@ -255,9 +291,10 @@ function HeroSection({ onBeginMission }: { onBeginMission: () => void }) {
         <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
           <button
             onClick={onBeginMission}
-            className="px-8 py-4 bg-teal-500 hover:bg-teal-400 text-white rounded-xl flex items-center gap-2 transition-all hover:scale-105"
+            disabled={isGameRunning === false}
+            className="px-8 py-4 bg-teal-500 hover:bg-teal-400 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-xl flex items-center gap-2 transition-all hover:scale-105"
           >
-            Begin Your Mission
+            {isGameRunning === false ? "No Active Game" : "Begin Your Mission"}
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>

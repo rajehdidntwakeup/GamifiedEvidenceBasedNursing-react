@@ -154,7 +154,7 @@ export const STUDIES_BY_MISSION: Record<number, Study[]> = {
           "Hawthorne effect possible — intervention nurses may perform better due to awareness",
         ],
         keyAnalysisPoints: [
-          "Process metrics improved significantly but the ultimate patient outcome (ROSC) did not reach significance",
+          "Process metrics improved significantly but the ultimate patient outcome (ROSC) was not significant",
           "The gap between statistical significance on process measures and clinical significance of outcomes should be discussed",
           "Academic setting with motivated participants may not reflect real-world implementation challenges",
           "Low attrition rate (3.5%) is a study strength",
@@ -242,6 +242,4 @@ export const STUDIES_BY_MISSION: Record<number, Study[]> = {
   ],
 };
 
-
 export const TOTAL_TIME = 20 * 60;
-

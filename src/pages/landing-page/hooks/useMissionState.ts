@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 
-import { roomApi } from "@/services/api";
+import { enteringMissionApi } from "@/services/api";
 import type { MissionApi } from "@/services/api";
 
 import { MISSIONS } from "../landing-page.data";
@@ -24,26 +24,6 @@ function getStoredMission(): LandingMission | null {
   return MISSIONS.find((mission) => mission.id === missionId) ?? null;
 }
 
-function parseErrorStatus(error: unknown): number | null {
-  if (!(error instanceof Error)) {
-    return null;
-  }
-
-  const httpMatch = error.message.match(/http\s*(\d{3})/i);
-  if (httpMatch) {
-    const status = Number(httpMatch[1]);
-    return Number.isInteger(status) ? status : null;
-  }
-
-  const jsonStatusMatch = error.message.match(/"status"\s*:\s*(\d{3})/i);
-  if (jsonStatusMatch) {
-    const status = Number(jsonStatusMatch[1]);
-    return Number.isInteger(status) ? status : null;
-  }
-
-  return null;
-}
-
 function getStoredGameId(): number | null {
   const rawGameId = localStorage.getItem(ACTIVE_GAME_ID_STORAGE_KEY);
   const gameId = Number(rawGameId);
@@ -53,30 +33,22 @@ function getStoredGameId(): number | null {
   return gameId;
 }
 
-async function doesGameExist(gameId: number, mission: MissionApi): Promise<boolean> {
+async function doesGameExist(gameId?: number, mission?: string): Promise<boolean> {
+  // Simplified check - just verify we can access the game endpoint
   try {
-    await roomApi.getRoomOfKnowledgeQuestionList({
-      gameId,
-      mission,
-    });
-    return true;
-  } catch (error) {
-    const status = parseErrorStatus(error);
-
-    if (status === 500) {
+    const url = gameId ? `/api/games/${gameId}/missions/${mission}` : "/api/game/landing";
+    const response = await fetch(url);
+    if (!response.ok) {
       return false;
     }
-
-    if (status === 400 || status === 401 || status === 403) {
-      return true;
-    }
-
-    throw error;
+    return true;
+  } catch {
+    return false;
   }
 }
 
 async function discoverLatestGameId(mission: MissionApi): Promise<number | null> {
-  const gameOneExists = await doesGameExist(1, mission);
+  const gameOneExists = await doesGameExist();
   if (!gameOneExists) {
     return null;
   }
@@ -158,7 +130,7 @@ interface MissionActions {
   setPassword: (password: string) => void;
   setShowAdmin: (show: boolean) => void;
   handleLogin: (e: React.FormEvent) => void;
-  handleMissionSelect: (mission: LandingMission) => void;
+  handleMissionSelect: (mission: { id: number; apiMission: string }) => void;
   handlePasswordSubmit: () => Promise<void>;
 }
 
@@ -214,8 +186,22 @@ export function useMissionState(): [MissionState, MissionActions] {
     setPassword("");
   }, []);
 
-  const handleMissionSelect = useCallback((mission: LandingMission) => {
-    setPendingMission(mission);
+  const handleMissionSelect = useCallback((mission: { id: number; apiMission: string }) => {
+    // Create a LandingMission-like object for backward compatibility
+    const backendMission = {
+      id: mission.id,
+      apiMission: mission.apiMission as MissionApi,
+      title: "",
+      subtitle: "",
+      desc: "",
+      icon: null,
+      xp: 0,
+      color: "",
+      borderColor: "",
+      bgColor: "",
+      textColor: "",
+    };
+    setPendingMission(backendMission);
     setMissionPassword("");
     setPasswordError(false);
     setPasswordErrorMessage(null);
@@ -249,13 +235,19 @@ export function useMissionState(): [MissionState, MissionActions] {
         return;
       }
 
-      await roomApi.getRoomOfKnowledgeQuestionList({
-        gameId,
-        mission: pendingMission.apiMission,
+      // Call the enter mission API to unlock and get initial room info
+      const response = await enteringMissionApi.enter({
         password: trimmedPassword,
+        gameId: gameId,
+        missionId: pendingMission.id,
       });
+
+      // Store the questions directly from the API response
+      sessionStorage.setItem("missionQuestions", JSON.stringify(response.questions));
+
       localStorage.setItem(ACTIVE_GAME_ID_STORAGE_KEY, String(gameId));
-      sessionStorage.setItem("activeMissionPassword", trimmedPassword);
+      sessionStorage.setItem("activeTeamId", String(pendingMission.id));
+      sessionStorage.setItem("activeRoomId", String(response.roomId));
       setActiveMission(pendingMission);
       setPendingMission(null);
       setMissionPassword("");
