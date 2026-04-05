@@ -31,6 +31,8 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
     const [answers, setAnswers] = useState<(number | null)[]>([]);
     const [results, setResults] = useState<QuestionResult[]>([]);
     const [timeExpired, setTimeExpired] = useState(false);
+    const [isProceeding, setIsProceeding] = useState(false);
+    const [proceedError, setProceedError] = useState<string | null>(null);
 
     const loadQuestions = useCallback(async () => {
         setIsLoadingQuestions(true);
@@ -148,6 +150,40 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
         questions.length > 0
             ? ((currentQuestion + (isAnswered ? 1 : 0)) / questions.length) * 100
             : 0;
+
+    const handleProceed = async () => {
+        if (!onProceedToRoom2 || isProceeding) return;
+
+        setIsProceeding(true);
+        setProceedError(null);
+
+        try {
+            // Get roomId from sessionStorage
+            const storedRoomId = sessionStorage.getItem("activeRoomId");
+            const roomId = storedRoomId ? Number(storedRoomId) : 1;
+
+            const response = await roomOfKnowledgeApi.proceed({ roomId });
+
+            // Store the next room's questions/data if needed
+            if (response.questions) {
+                sessionStorage.setItem("roomOfAbstractsData", JSON.stringify(response));
+            }
+
+            // Update room ID in session storage
+            sessionStorage.setItem("activeRoomId", String(response.roomId));
+
+            onProceedToRoom2();
+        } catch (error) {
+            console.error("Failed to proceed to Room 2:", error);
+            setProceedError(
+                error instanceof Error && error.message
+                    ? error.message
+                    : "Failed to proceed to the next room. Please try again.",
+            );
+        } finally {
+            setIsProceeding(false);
+        }
+    };
 
     if (isLoadingQuestions) {
         return (
@@ -396,13 +432,23 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
                                 </button>
                             )}
                             {passed && onProceedToRoom2 && (
-                                <button
-                                    onClick={onProceedToRoom2}
-                                    className="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-xl transition-colors flex items-center justify-center gap-2"
-                                >
-                                    Proceed to Room 2
-                                    <ChevronRight className="w-4 h-4"/>
-                                </button>
+                                <div className="flex flex-col items-center gap-2">
+                                    <button
+                                        onClick={handleProceed}
+                                        disabled={isProceeding}
+                                        className="px-6 py-3 bg-teal-500 hover:bg-teal-400 disabled:bg-teal-800 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        {isProceeding ? (
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        ) : (
+                                            <ChevronRight className="w-4 h-4"/>
+                                        )}
+                                        Proceed to Room 2
+                                    </button>
+                                    {proceedError && (
+                                        <p className="text-red-400 text-xs mt-1">{proceedError}</p>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </motion.div>

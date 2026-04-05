@@ -521,16 +521,16 @@ paths:
                 roomId: 2
                 missionId: 1
                 mainQuestion: "Welcome to Room of Abstracts"
-                images:
+                docs:
                   - "/images/abstracts.jpg"
                 questions:
                   - questionId: 1
                     question: "What is the main topic?"
                     answers:
-                      - "Topic A"
-                      - "Topic B"
-                      - "Topic C"
-                      - "Topic D"
+                      - answerId: 1
+                        answer: "Topic A"
+                      - answerId: 2
+                        answer: "Topic B"
 
 # ════════════════════════════════════════════════
 # Reusable Components
@@ -598,7 +598,7 @@ components:
           type: string
           description: JWT Bearer token
           example: "eyJhbGciOiJIUzI1NiJ9..."
-        admin:
+        isAdmin:
           type: boolean
           description: Whether the authenticated user has the ADMIN role
           example: true
@@ -815,7 +815,7 @@ components:
         mainQuestion:
           type: string
           example: "Welcome to Room of Abstracts"
-        images:
+        docs:
           type: array
           items:
             type: string
@@ -837,8 +837,7 @@ components:
         answers:
           type: array
           items:
-            type: string
-            example: "Topic A"
+            $ref: '#/components/schemas/AnswerDto'
 
     # ── Error ───────────────────────────────────
     ErrorResponse:

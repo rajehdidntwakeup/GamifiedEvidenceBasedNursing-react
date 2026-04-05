@@ -6,60 +6,35 @@ export interface RoomOfAbstractsProps {
   onProceedToRoom3?: () => void;
 }
 
-export interface Article {
-  id: number;
-  title: string;
-  authors: string;
-  journal: string;
-  year: number;
-  abstract: string;
-  correctAnswers: {
-    titleAuthor: string;
-    pyramid: string;
-    ahcpr: string;
-    studyDesign: string;
-  };
+// answers from the backend
+export interface TableQuestion {
+  questionId: number;
+  question: string; // e.g. "4_2_Study Design?"
+  answers: { answerId: number; answer: string }[]; // correct answer is always first (index 0)
 }
 
+export interface StoredRoomOfAbstractsData {
+  roomId: number;
+  missionId: number;
+  mainQuestion: string;
+  docs: string[];
+  questions: TableQuestion[];
+}
+
+// Selected answer per cell
 export interface TableRow {
-  titleAuthor: string;
-  pyramid: string;
-  ahcpr: string;
-  studyDesign: string;
+  titleAuthor: { answerId: number | null; questionId: number | null };
+  pyramid: { answerId: number | null; questionId: number | null };
+  ahcpr: { answerId: number | null; questionId: number | null };
+  studyDesign: { answerId: number | null; questionId: number | null };
 }
 
-export const PYRAMID_OPTIONS = [
-  { value: "", label: "Select LoE..." },
-  { value: "Level I", label: "Level I - Systematic Reviews / Meta-analyses" },
-  { value: "Level II", label: "Level II - Randomized Controlled Trials" },
-  { value: "Level III", label: "Level III - Controlled Trials (no randomization)" },
-  { value: "Level IV", label: "Level IV - Case-Control / Cohort Studies" },
-  { value: "Level V", label: "Level V - Systematic Reviews of Descriptive Studies" },
-  { value: "Level VI", label: "Level VI - Single Descriptive / Qualitative Study" },
-  { value: "Level VII", label: "Level VII - Expert Opinion" },
-];
-
-export const AHCPR_OPTIONS = [
-  { value: "", label: "Select AHCPR..." },
-  { value: "Ia", label: "Ia - Meta-analysis of RCTs" },
-  { value: "Ib", label: "Ib - At least one RCT" },
-  { value: "IIa", label: "IIa - Controlled study (no randomization)" },
-  { value: "IIb", label: "IIb - Quasi-experimental study" },
-  { value: "III", label: "III - Non-experimental descriptive studies" },
-  { value: "IV", label: "IV - Expert committee reports / opinions" },
-];
-
-export const STUDY_DESIGN_OPTIONS = [
-  { value: "", label: "Select design..." },
-  { value: "Systematic Review", label: "Systematic Review" },
-  { value: "Meta-Analysis", label: "Meta-Analysis" },
-  { value: "RCT", label: "Randomized Controlled Trial (RCT)" },
-  { value: "Cohort Study", label: "Cohort Study" },
-  { value: "Case-Control Study", label: "Case-Control Study" },
-  { value: "Cross-Sectional Study", label: "Cross-Sectional Study" },
-  { value: "Qualitative Study", label: "Qualitative Study" },
-  { value: "Case Report", label: "Case Report / Case Series" },
-  { value: "Expert Opinion", label: "Expert Opinion / Editorial" },
-];
+// Options for dropdown rendering per row
+export interface CellOptions {
+  titleAuthor: { answerId: number; answer: string }[];
+  pyramid: { answerId: number; answer: string }[];
+  ahcpr: { answerId: number; answer: string }[];
+  studyDesign: { answerId: number; answer: string }[];
+}
 
 export const TOTAL_TIME = 15 * 60;
