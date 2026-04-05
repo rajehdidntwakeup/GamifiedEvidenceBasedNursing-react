@@ -14,7 +14,7 @@ import {useState, useEffect, useCallback} from "react";
 
 import {roomOfKnowledgeApi} from "./api";
 import {TOTAL_TIME, loadRoomOfKnowledgeQuestions} from "./room-of-knowledge.data";
-import type {RoomOfKnowledgeProps, RoomQuestion} from "./room-of-knowledge.data";
+import type {RoomOfKnowledgeProps, RoomQuestion, QuestionResult} from "./room-of-knowledge.data";
 
 export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowledgeProps) {
     const [questions, setQuestions] = useState<RoomQuestion[]>([]);
@@ -29,6 +29,7 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
     const [verifiedCorrectIndex, setVerifiedCorrectIndex] = useState<number | null>(null);
     const [isComplete, setIsComplete] = useState(false);
     const [answers, setAnswers] = useState<(number | null)[]>([]);
+    const [results, setResults] = useState<QuestionResult[]>([]);
     const [timeExpired, setTimeExpired] = useState(false);
 
     const loadQuestions = useCallback(async () => {
@@ -46,6 +47,7 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
             setScore(0);
             setIsComplete(false);
             setAnswers([]);
+            setResults([]);
             setTimeExpired(false);
         } catch (error) {
             setQuestions([]);
@@ -124,6 +126,10 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
             setVerifiedCorrectIndex(activeQuestion.correctIndex); // Show which was actually correct
         }
         setAnswers((prev) => [...prev, index]);
+        setResults((prev) => [...prev, {
+            question: activeQuestion.question,
+            isCorrect: isCorrect
+        }]);
     };
 
     const handleNext = useCallback(() => {
@@ -329,32 +335,38 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
                             </motion.div>
                         )}
 
-                        {/* Question review */}
-                        <div className="space-y-2 mb-8">
-                            {questions.map((question, i) => {
-                                const userAnswer = answers[i];
-                                const isCorrect = userAnswer === question.correctIndex;
-                                const wasAnswered = userAnswer !== undefined;
-                                return (
-                                    <div
-                                        key={question.id}
-                                        className="flex items-center gap-3 bg-white/5 rounded-lg px-4 py-3 text-left"
+                        {/* Question review (Cash Memo) */}
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 text-left">
+                            <h3 className="text-teal-400 font-[JetBrains_Mono,monospace] text-sm mb-4 flex items-center gap-2">
+                                <BookOpen className="w-4 h-4" />
+                                MISSION REPORT
+                            </h3>
+                            <div className="space-y-3">
+                                {results.map((result, i) => (
+                                    <motion.div
+                                        key={i}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.1 * i }}
+                                        className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/5"
                                     >
-                                        {wasAnswered ? (
-                                            isCorrect ? (
-                                                <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0"/>
-                                            ) : (
-                                                <XCircle className="w-5 h-5 text-red-400 shrink-0"/>
-                                            )
+                                        {result.isCorrect ? (
+                                            <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
                                         ) : (
-                                            <div className="w-5 h-5 rounded-full border border-gray-600 shrink-0"/>
+                                            <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
                                         )}
-                                        <span className="text-gray-300 text-sm truncate">
-                      Q{i + 1}: {question.question}
-                    </span>
-                                    </div>
-                                );
-                            })}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-gray-300 text-sm leading-relaxed">
+                                                <span className="text-gray-500 font-[JetBrains_Mono,monospace] mr-2">#{i + 1}</span>
+                                                {result.question}
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                                {results.length === 0 && (
+                                    <p className="text-gray-500 text-sm italic text-center py-4">No questions answered.</p>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -366,16 +378,17 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
                             </button>
                             {!passed && (
                                 <button
-                                    onClick={() => {
-                                        setTimeLeft(TOTAL_TIME);
-                                        setCurrentQuestion(0);
-                                        setSelectedAnswer(null);
-                                        setIsAnswered(false);
-                                        setScore(0);
-                                        setIsComplete(false);
-                                        setAnswers([]);
-                                        setTimeExpired(false);
-                                    }}
+                                        onClick={() => {
+                                            setTimeLeft(TOTAL_TIME);
+                                            setCurrentQuestion(0);
+                                            setSelectedAnswer(null);
+                                            setIsAnswered(false);
+                                            setScore(0);
+                                            setIsComplete(false);
+                                            setAnswers([]);
+                                            setResults([]);
+                                            setTimeExpired(false);
+                                        }}
                                     className="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-xl transition-colors flex items-center justify-center gap-2"
                                 >
                                     Retry Room
