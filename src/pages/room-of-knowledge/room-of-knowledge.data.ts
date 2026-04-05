@@ -16,6 +16,11 @@ export interface RoomQuestion {
   explanation?: string;
 }
 
+export interface QuestionResult {
+  question: string;
+  isCorrect: boolean;
+}
+
 export const TOTAL_TIME = 10 * 60;
 
 
