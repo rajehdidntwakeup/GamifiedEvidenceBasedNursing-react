@@ -493,14 +493,14 @@ paths:
   # ──────────────────────────────────────────────
   # Proceed to Next Room
   # ──────────────────────────────────────────────
-  /api/game/proceed:
+  /api/game/proceed/abstracts:
     post:
       tags:
         - Proceed to Next Room
-      summary: Proceed to the next room
+      summary: Proceed to the Room of Abstracts
       description: |
         Advances a team from Room of Knowledge to Room of Abstracts.
-      operationId: proceedToNextRoom
+      operationId: proceedToTheRoomOfAbstracts
       requestBody:
         description: Proceed request
         required: true
