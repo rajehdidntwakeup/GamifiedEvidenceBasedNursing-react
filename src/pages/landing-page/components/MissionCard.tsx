@@ -10,7 +10,6 @@ interface MissionCardProps {
     subtitle: string;
     desc: string;
     icon: React.ComponentType<{ className?: string }> | null;
-    xp: number;
     color: string;
     borderColor: string;
     bgColor: string;
@@ -53,7 +52,6 @@ export function MissionCard({ mission, onSelect, index }: MissionCardProps) {
         {/* Footer */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className={`text-sm ${mission.textColor}`}>+{mission.xp.toLocaleString()} XP</span>
           </div>
           <div className={`flex items-center gap-1 ${mission.textColor} opacity-0 group-hover:opacity-100 transition-opacity`}>
             <span className="text-sm">Enter Mission</span>
