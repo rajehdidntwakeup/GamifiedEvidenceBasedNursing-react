@@ -15,6 +15,7 @@ export interface RoomOfAbstractsApi {
     missionId: number;
     answers: VerifyAnswer[];
   }) => Promise<{ progress: number; key: string | null }>;
+  retryRoom: (roomId: number) => Promise<number>;
 }
 
 export const roomOfAbstractsApi: RoomOfAbstractsApi = {
@@ -26,4 +27,9 @@ export const roomOfAbstractsApi: RoomOfAbstractsApi = {
         body: JSON.stringify(request),
       },
     ),
+  retryRoom: (roomId: number) => {
+    return fetchApi<number>(`/api/rooms/retry/abstracts?roomId=${roomId}`, {
+      method: 'PUT',
+    });
+  },
 };

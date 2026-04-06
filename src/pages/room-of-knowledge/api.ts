@@ -15,18 +15,28 @@ export interface RoomOfKnowledgeApiRequest {
 
 export interface RoomOfKnowledgeApi {
   getQuestions: (request: RoomOfKnowledgeApiRequest) => Promise<RoomOfKnowledgeQuestionDto[]>;
-  verifyAnswer: (questionId: number, answerId: number) => Promise<boolean>;
+  verifyAnswer: (roomId: number, questionId: number, answerId: number) => Promise<boolean>;
+  getResult: (roomId: number) => Promise<{ progress: number; key: string | null }>;
   proceed: (request: ProceedDto) => Promise<RoomOfAbstractsResponseDto>;
+  retryRoom: (roomId: number) => Promise<number>;
 }
 
 export const roomOfKnowledgeApi: RoomOfKnowledgeApi = {
   getQuestions: ({ gameId, teamId, roomId }: RoomOfKnowledgeApiRequest) => {
     return fetchApi<RoomOfKnowledgeQuestionDto[]>(`/api/games/${gameId}/teams/${teamId}/rooms/${roomId}/questions`);
   },
-  verifyAnswer: (questionId: number, answerId: number) => {
-    return fetchApi<boolean>(`/api/rooms/roomofknowledge/question/${questionId}/answer/${answerId}`);
+  verifyAnswer: (roomId: number, questionId: number, answerId: number) => {
+    return fetchApi<boolean>(`/api/rooms/roomofknowledge/${roomId}/question/${questionId}/answer/${answerId}`);
+  },
+  getResult: (roomId: number) => {
+    return fetchApi<{ progress: number; key: string | null }>(`/api/rooms/roomofknowledge/getResult?roomId=${roomId}`);
   },
   proceed: (request: ProceedDto) => {
     return proceedApi.toNextRoom(request);
+  },
+  retryRoom: (roomId: number) => {
+    return fetchApi<number>(`/api/rooms/retry/knowledge?roomId=${roomId}`, {
+      method: 'PUT',
+    });
   },
 };

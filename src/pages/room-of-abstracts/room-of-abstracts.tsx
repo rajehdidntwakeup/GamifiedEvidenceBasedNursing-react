@@ -191,6 +191,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [resultProgress, setResultProgress] = useState<number | null>(null);
   const [resultKey, setResultKey] = useState<string | null>(null);
+  const [previousKey, setPreviousKey] = useState<string | null>(null);
 
   // Load from sessionStorage on mount
   useEffect(() => {
@@ -208,6 +209,10 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
     setTimeLeft(TOTAL_TIME);
     setTimeExpired(false);
     setIsComplete(false);
+
+    // Load previously collected key from Room of Knowledge
+    const storedKey = sessionStorage.getItem("roomOfKnowledgeKey");
+    setPreviousKey(storedKey);
   }, []);
 
   // Timer
@@ -282,6 +287,12 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
 
       setResultProgress(result.progress);
       setResultKey(result.key);
+
+      // Save clue letters to sessionStorage if progress is 100%
+      if (result.progress === 100 && result.key) {
+        sessionStorage.setItem("roomOfAbstractsKey", result.key);
+      }
+
       setIsComplete(true);
     } catch {
       setSubmitError("Verification failed. Please try again.");
@@ -290,8 +301,15 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
     }
   };
 
-  const handleRetry = () => {
+  const handleRetry = async () => {
     if (!data) return;
+
+    try {
+      await roomOfAbstractsApi.retryRoom(data.roomId);
+    } catch (error) {
+      console.error("Failed to retry room:", error);
+    }
+
     const { rows } = buildTable(data.questions);
     const options = buildCellOptions(data.questions);
     setTableRows(rows);
@@ -426,7 +444,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                     Two more letters revealed! Add them to your collection.
                   </p>
                   <div className="flex items-center justify-center gap-4">
-                    {["E", "C"].map((letter) => (
+                    {previousKey && previousKey.split("-").map((letter) => (
                       <div
                         key={`prev-${letter}`}
                         className="w-12 h-15 bg-[#0a1f22]/60 border border-white/10 rounded-lg flex items-center justify-center opacity-40"
@@ -455,7 +473,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                     ))}
                   </div>
                   <p className="text-gray-600 text-xs mt-4 font-[JetBrains_Mono,monospace]">
-                    FRAGMENT 3 OF ? // COLLECTED: E, C, {resultKey.replace("-", " ,")}
+                    FRAGMENT 2 OF ? // COLLECTED: {previousKey ? previousKey.replace("-", ", ") + ", " : ""}{resultKey.replace("-", ", ")}
                   </p>
                 </div>
               </motion.div>

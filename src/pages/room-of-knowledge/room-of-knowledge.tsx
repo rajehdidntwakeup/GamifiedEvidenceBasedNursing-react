@@ -33,6 +33,8 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
     const [timeExpired, setTimeExpired] = useState(false);
     const [isProceeding, setIsProceeding] = useState(false);
     const [proceedError, setProceedError] = useState<string | null>(null);
+    const [resultProgress, setResultProgress] = useState<number | null>(null);
+    const [resultKey, setResultKey] = useState<string | null>(null);
 
     const loadQuestions = useCallback(async () => {
         setIsLoadingQuestions(true);
@@ -102,30 +104,30 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
         const activeQuestion = questions[currentQuestion];
         if (!activeQuestion) return;
 
-        console.log("handleSelectAnswer called with index:", index);
-        console.log("activeQuestion:", activeQuestion);
-
         setIsVerifyingAnswer(true);
         setSelectedAnswer(index);
 
         // Get the answerId for this index from the stored answerIds
         const answerId = activeQuestion.answerIds[index];
-        console.log("answerId:", answerId);
+
+        // Get roomId from sessionStorage
+        const storedRoomId = sessionStorage.getItem("activeRoomId");
+        const roomId = storedRoomId ? Number(storedRoomId) : 1;
 
         // Call API to verify answer
         const isCorrect = await roomOfKnowledgeApi.verifyAnswer(
+            roomId,
             activeQuestion.id,
             answerId
         );
 
-        console.log("isCorrect from API:", isCorrect);
         setIsVerifyingAnswer(false);
         setIsAnswered(true);
         if (isCorrect) {
             setScore((s) => s + 1);
-            setVerifiedCorrectIndex(index); // Store the verified correct answer index
+            setVerifiedCorrectIndex(index);
         } else {
-            setVerifiedCorrectIndex(activeQuestion.correctIndex); // Show which was actually correct
+            setVerifiedCorrectIndex(activeQuestion.correctIndex);
         }
         setAnswers((prev) => [...prev, index]);
         setResults((prev) => [...prev, {
@@ -134,16 +136,35 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
         }]);
     };
 
-    const handleNext = useCallback(() => {
+    const handleNext = useCallback(async () => {
         if (currentQuestion < questions.length - 1) {
             setCurrentQuestion((q) => q + 1);
             setSelectedAnswer(null);
             setIsAnswered(false);
             setVerifiedCorrectIndex(null);
         } else {
+            // Fetch result from API before showing results screen
+            const storedRoomId = sessionStorage.getItem("activeRoomId");
+            const roomId = storedRoomId ? Number(storedRoomId) : 1;
+
+            try {
+                const result = await roomOfKnowledgeApi.getResult(roomId);
+                setResultProgress(result.progress);
+                setResultKey(result.key);
+
+                // Save clue letters to sessionStorage if progress is 100%
+                if (result.progress === 100 && result.key) {
+                    sessionStorage.setItem("roomOfKnowledgeKey", result.key);
+                }
+            } catch {
+                // If API fails, fall back to local calculation
+                setResultProgress(Math.round((score / questions.length) * 100));
+                setResultKey(null);
+            }
+
             setIsComplete(true);
         }
-    }, [currentQuestion, questions.length]);
+    }, [currentQuestion, questions.length, score]);
 
     const q = questions[currentQuestion];
     const progressPercent =
@@ -249,8 +270,8 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
     }
 
     if (isComplete) {
-        const percentage = Math.round((score / questions.length) * 100);
-        const passed = score === questions.length;
+        const pct = resultProgress ?? Math.round((score / questions.length) * 100);
+        const passed = pct === 100;
         return (
             <div className="fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]">
                 {/* Grid overlay */}
@@ -303,29 +324,31 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
                         {/* Score display */}
                         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
                             <div className="flex items-center justify-between mb-4">
-                                <span className="text-gray-400">Score</span>
+                                <span className="text-gray-400">Progress</span>
                                 <span className="text-white text-2xl font-[JetBrains_Mono,monospace]">
-                  {score}/{questions.length}
+                  {pct}%
                 </span>
                             </div>
                             <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden mb-4">
                                 <motion.div
                                     initial={{width: 0}}
-                                    animate={{width: `${percentage}%`}}
+                                    animate={{width: `${pct}%`}}
                                     transition={{duration: 1, delay: 0.3}}
                                     className={`h-full rounded-full ${passed ? "bg-teal-500" : "bg-orange-500"}`}
                                 />
                             </div>
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-500">{percentage}% correct</span>
+                                <span className="text-gray-500">
+                  {passed ? "Perfect score!" : "Not enough"}
+                </span>
                                 <span className={passed ? "text-teal-400" : "text-orange-400"}>
-                  {passed ? "PASSED" : "All questions must be correct"}
+                  {passed ? "ROOM CLEARED" : "100% required to pass"}
                 </span>
                             </div>
                         </div>
 
                         {/* Clue Letters Reward */}
-                        {passed && (
+                        {passed && resultKey && (
                             <motion.div
                                 initial={{opacity: 0, y: 20}}
                                 animate={{opacity: 1, y: 0}}
@@ -346,7 +369,7 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
                                         you&apos;ll need them later!
                                     </p>
                                     <div className="flex items-center justify-center gap-6">
-                                        {["E", "C"].map((letter, i) => (
+                                        {resultKey.split("-").map((letter, i) => (
                                             <motion.div
                                                 key={letter}
                                                 initial={{opacity: 0, scale: 0, rotateY: 180}}
@@ -365,7 +388,7 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
                                         ))}
                                     </div>
                                     <p className="text-gray-600 text-xs mt-4 font-[JetBrains_Mono,monospace]">
-                                        FRAGMENT 1 OF ? // COLLECT ALL LETTERS TO SOLVE THE CASE
+                                        FRAGMENT 1 OF ? // COLLECTED: {resultKey.replace("-", " , ")}
                                     </p>
                                 </div>
                             </motion.div>
@@ -414,7 +437,16 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
                             </button>
                             {!passed && (
                                 <button
-                                        onClick={() => {
+                                        onClick={async () => {
+                                            const storedRoomId = sessionStorage.getItem("activeRoomId");
+                                            const roomId = storedRoomId ? Number(storedRoomId) : 1;
+
+                                            try {
+                                                await roomOfKnowledgeApi.retryRoom(roomId);
+                                            } catch (error) {
+                                                console.error("Failed to retry room:", error);
+                                            }
+
                                             setTimeLeft(TOTAL_TIME);
                                             setCurrentQuestion(0);
                                             setSelectedAnswer(null);
@@ -424,6 +456,8 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
                                             setAnswers([]);
                                             setResults([]);
                                             setTimeExpired(false);
+                                            setResultProgress(null);
+                                            setResultKey(null);
                                         }}
                                     className="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-xl transition-colors flex items-center justify-center gap-2"
                                 >
