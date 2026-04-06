@@ -221,7 +221,6 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
   const teamsCompleted = activeTeams.filter((t) => t.currentRoom === 6).length;
   const teamsTimedOut = activeTeams.filter((t) => t.timedOut).length;
   const activeAlerts = timeoutAlerts.filter((a) => !a.dismissed);
-  const missionAssignmentCount = createGameResponse?.teamMissions ? Object.keys(createGameResponse.teamMissions).length : 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]">
@@ -573,7 +572,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                   {createGameResponse && (
                     <div className="px-3 py-2 bg-green-500/15 border border-green-500/30 rounded-lg text-green-300 text-sm">
                       Game #{createGameResponse.gameId} created.
-                      {` ${missionAssignmentCount} mission assignments were generated.`}
+                      {` Mission assignments were generated.`}
                     </div>
                   )}
 

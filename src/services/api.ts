@@ -190,7 +190,7 @@ export interface RoomOfAbstractsResponseDto {
   roomId: number;
   missionId: number;
   mainQuestion: string;
-  images: string[];
+  docs: string[];
   questions: TableQuestionDto[];
 }
 
@@ -202,11 +202,11 @@ export interface TableQuestionDto {
 
 export const proceedApi = {
   /**
-   * Proceed to the next room
-   * Path: /api/game/proceed
+   * Proceed to the next room (Room of Abstracts)
+   * Path: /api/game/proceed/abstracts
    */
   toNextRoom: (request: ProceedDto) =>
-    fetchApi<RoomOfAbstractsResponseDto>("/api/game/proceed", {
+    fetchApi<RoomOfAbstractsResponseDto>("/api/game/proceed/abstracts", {
       method: "POST",
       body: JSON.stringify(request),
     }),
