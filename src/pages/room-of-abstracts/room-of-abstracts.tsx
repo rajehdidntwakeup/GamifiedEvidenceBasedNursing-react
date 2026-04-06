@@ -2,13 +2,13 @@ import {
   ArrowLeft,
   Clock,
   FileText,
-  CheckCircle2,
-  XCircle,
   ChevronRight,
   AlertTriangle,
   Trophy,
   KeyRound,
   Image as ImageIcon,
+  X,
+  ZoomIn,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
@@ -25,13 +25,51 @@ import type {
   CellOptions,
 } from "./room-of-abstracts.data";
 
-// Direct imports for abstract images
-// These will be bundled by Vite with ?url query
-import abstract1_m1 from "@/shared/assets/abstracts/mission1/1_Abstract_Expertenkommentar.PNG?url";
-import abstract2_m1 from "@/shared/assets/abstracts/mission1/2_Abstract_Santamarie_et_al_RCT.PNG?url";
-import abstract3_m1 from "@/shared/assets/abstracts/mission1/3_Abstract_Zhang_et_al.PNG?url";
+// Direct imports for all abstracts
+// When backend sends "abstracts/mission1/1_Abstract_Expertenkommentar.PNG" we extract
+// the filename "1_Abstract_Expertenkommentar.PNG" and match it here
+import m1_a1 from "@/shared/assets/abstracts/mission1/1_Abstract_Expertenkommentar.PNG?url";
+import m1_a2 from "@/shared/assets/abstracts/mission1/2_Abstract_Santamarie_et_al_RCT.PNG?url";
+import m1_a3 from "@/shared/assets/abstracts/mission1/3_Abstract_Zhang_et_al.PNG?url";
+import m2_a1 from "@/shared/assets/abstracts/mission2/1_Abstract_Effects_of_VR_Games.PNG?url";
+import m2_a2 from "@/shared/assets/abstracts/mission2/2_Abstract_Bedrails_and_Falls_in_Nursing_Homes.PNG?url";
+import m2_a3 from "@/shared/assets/abstracts/mission2/3_Abstract_Expertenkommentar.PNG?url";
+import m3_a1 from "@/shared/assets/abstracts/mission3/1_Abstract_PostoperstivePaintreatmentwithDementia.PNG?url";
+import m3_a2 from "@/shared/assets/abstracts/mission3/2_Abstract_Documentaton_for_Assessing_Pain_inPostoperative.PNG?url";
+import m3_a3 from "@/shared/assets/abstracts/mission3/3_Abstract_Nursing_Music_Protocol_and_Postoperative_Pain.PNG?url";
+import m4_a1 from "@/shared/assets/abstracts/mission4/1_Abstract_Ten_Cate_et_al_Systematic_Review.PNG?url";
+import m4_a2 from "@/shared/assets/abstracts/mission4/2_Abstract_weerasag_et_al_RCT.PNG?url";
+import m4_a3 from "@/shared/assets/abstracts/mission4/3_Abstract_Gefahr_einer_Mangelernährung_Querschnittstudie.PNG?url";
+import m5_a1 from "@/shared/assets/abstracts/mission5/1_Abstract_Urin_Sampling_is_associated_with_reduced_CAUTI_2021.PNG?url";
+import m5_a2 from "@/shared/assets/abstracts/mission5/2_Abstract_Implementation_of_a_multi_modal_inervention_CAUTI2024.PNG?url";
+import m5_a3 from "@/shared/assets/abstracts/mission5/3_Abstracxt_PRactice_REcommendation_CAUTI2023.PNG?url";
 
-console.log("Direct imports:", abstract1_m1, abstract2_m1, abstract3_m1);
+// Map by filename only
+const abstracts: Record<string, string> = {
+  "1_Abstract_Expertenkommentar.PNG": m1_a1,
+  "2_Abstract_Santamarie_et_al_RCT.PNG": m1_a2,
+  "3_Abstract_Zhang_et_al.PNG": m1_a3,
+  "1_Abstract_Effects_of_VR_Games.PNG": m2_a1,
+  "2_Abstract_Bedrails_and_Falls_in_Nursing_Homes.PNG": m2_a2,
+  "3_Abstract_Expertenkommentar.PNG": m2_a3,
+  "1_Abstract_PostoperstivePaintreatmentwithDementia.PNG": m3_a1,
+  "2_Abstract_Documentaton_for_Assessing_Pain_inPostoperative.PNG": m3_a2,
+  "3_Abstract_Nursing_Music_Protocol_and_Postoperative_Pain.PNG": m3_a3,
+  "1_Abstract_Ten_Cate_et_al_Systematic_Review.PNG": m4_a1,
+  "2_Abstract_weerasag_et_al_RCT.PNG": m4_a2,
+  "3_Abstract_Gefahr_einer_Mangelernährung_Querschnittstudie.PNG": m4_a3,
+  "1_Abstract_Urin_Sampling_is_associated_with_reduced_CAUTI_2021.PNG": m5_a1,
+  "2_Abstract_Implementation_of_a_multi_modal_inervention_CAUTI2024.PNG": m5_a2,
+  "3_Abstracxt_PRactice_REcommendation_CAUTI2023.PNG": m5_a3,
+};
+
+function getAbstractImage(docPath: string): string | undefined {
+  if (!docPath) return undefined;
+  // docPath is like "abstracts/mission1/1_Abstract_Expertenkommentar.PNG"
+  // Extract just the filename
+  const filename = docPath.split("/").pop();
+  return filename ? abstracts[filename] : undefined;
+}
 
 const STORAGE_KEY = "roomOfAbstractsData";
 
@@ -119,17 +157,6 @@ function buildCellOptions(questions: TableQuestion[]): Map<number, CellOptions> 
   return optionsMap;
 }
 
-// Build a map of questionId → correct answerId for scoring
-function buildCorrectAnswers(questions: TableQuestion[]): Map<number, number> {
-  const map = new Map<number, number>();
-  for (const q of questions) {
-    if (q.answers.length > 0) {
-      map.set(q.questionId, q.answers[0].answerId);
-    }
-  }
-  return map;
-}
-
 function loadStoredData(): StoredRoomOfAbstractsData | null {
   const raw = sessionStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
@@ -161,6 +188,9 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
   const [isComplete, setIsComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
+  const [resultProgress, setResultProgress] = useState<number | null>(null);
+  const [resultKey, setResultKey] = useState<string | null>(null);
 
   // Load from sessionStorage on mount
   useEffect(() => {
@@ -244,12 +274,14 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
         ])
         .filter((a): a is { questionId: number; answerId: number | null } => a !== null && a.answerId !== null);
 
-      await roomOfAbstractsApi.verifyAnswers({
+      const result = await roomOfAbstractsApi.verifyAnswers({
         roomId: data.roomId,
         missionId: data.missionId,
         answers: answers as { questionId: number; answerId: number }[],
       });
 
+      setResultProgress(result.progress);
+      setResultKey(result.key);
       setIsComplete(true);
     } catch {
       setSubmitError("Verification failed. Please try again.");
@@ -269,8 +301,6 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
     setIsComplete(false);
     setSubmitError(null);
   };
-
-  const totalCells = tableRows.length * 4;
 
   // ── No data found ─────────────────────────────────────────────────────────
   if (!data || tableRows.length === 0) {
@@ -305,17 +335,8 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
 
   // ── Results screen ────────────────────────────────────────────────────────
   if (isComplete) {
-    const correctAnswers = buildCorrectAnswers(data.questions);
-    const computedScore = tableRows.reduce((acc, row) => {
-      let cellScore = 0;
-      if (row.titleAuthor.answerId !== null && correctAnswers.get(row.titleAuthor.questionId!) === row.titleAuthor.answerId) cellScore++;
-      if (row.pyramid.answerId !== null && correctAnswers.get(row.pyramid.questionId!) === row.pyramid.answerId) cellScore++;
-      if (row.ahcpr.answerId !== null && correctAnswers.get(row.ahcpr.questionId!) === row.ahcpr.answerId) cellScore++;
-      if (row.studyDesign.answerId !== null && correctAnswers.get(row.studyDesign.questionId!) === row.studyDesign.answerId) cellScore++;
-      return acc + cellScore;
-    }, 0);
-    const pct = Math.round((computedScore / totalCells) * 100);
-    const didPass = pct >= 60;
+    const didPass = resultProgress === 100;
+    const pct = resultProgress ?? 0;
 
     return (
       <div className="fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]">
@@ -355,18 +376,18 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
             <p className="text-gray-400 mb-8">
               {didPass
                 ? "Excellent analysis, Agent. You've demonstrated strong evidence appraisal skills."
-                : "Review the abstracts more carefully and try again, Agent."}
+                : "Perfect score required. Review the abstracts more carefully and try again, Agent."}
             </p>
 
-            {/* Score */}
+            {/* Progress */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-gray-400">Score</span>
+                <span className="text-gray-400">Progress</span>
                 <span className="text-white text-2xl font-[JetBrains_Mono,monospace]">
-                  {computedScore}/{totalCells}
+                  {pct}%
                 </span>
               </div>
-              <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden mb-4">
+              <div className="w-full h-4 bg-white/10 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${pct}%` }}
@@ -374,66 +395,18 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                   className={`h-full rounded-full ${didPass ? "bg-teal-500" : "bg-orange-500"}`}
                 />
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">{pct}% correct</span>
+              <div className="flex items-center justify-between text-sm mt-4">
+                <span className="text-gray-500">
+                  {didPass ? "Perfect score!" : "Not enough"}
+                </span>
                 <span className={didPass ? "text-teal-400" : "text-orange-400"}>
-                  {didPass ? "PASSED" : "60% required to pass"}
+                  {didPass ? "ROOM CLEARED" : "100% required to pass"}
                 </span>
               </div>
             </div>
 
-            {/* Results table */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-8 overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="py-2 px-3 text-gray-500 font-[JetBrains_Mono,monospace] text-xs w-8">#</th>
-                    <th className="py-2 px-3 text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Author</th>
-                    <th className="py-2 px-3 text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Pyramid (LoE)</th>
-                    <th className="py-2 px-3 text-gray-500 font-[JetBrains_Mono,monospace] text-xs">AHCPR</th>
-                    <th className="py-2 px-3 text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Study Design</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableRows.map((row, i) => (
-                    <tr key={i} className="border-b border-white/5">
-                      <td className="py-3 px-3 text-gray-400">{i + 1}</td>
-                      {(["titleAuthor", "pyramid", "ahcpr", "studyDesign"] as const).map((field) => {
-                        const cell = row[field];
-                        const correctAnswerId = correctAnswers.get(cell.questionId!);
-                        const isCorrect = cell.answerId !== null && cell.answerId === correctAnswerId;
-                        const rowOpts = cellOptions.get(i);
-                        const opts = rowOpts?.[field] ?? [];
-                        const selectedOpt = opts.find((o) => o.answerId === cell.answerId);
-                        const correctOpt = opts.find((o) => o.answerId === correctAnswerId);
-                        return (
-                          <td key={field} className="py-3 px-3">
-                            <div className="flex items-start gap-2">
-                              {isCorrect ? (
-                                <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
-                              ) : (
-                                <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                              )}
-                              <div>
-                                <p className={`text-xs ${isCorrect ? "text-green-300" : "text-red-300"}`}>
-                                  {selectedOpt?.answer ?? "(empty)"}
-                                </p>
-                                {!isCorrect && correctOpt && (
-                                  <p className="text-xs text-teal-400 mt-1">Correct: {correctOpt.answer}</p>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
             {/* Clue Letters */}
-            {didPass && (
+            {didPass && resultKey && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -453,7 +426,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                     Two more letters revealed! Add them to your collection.
                   </p>
                   <div className="flex items-center justify-center gap-4">
-                    {["E", "C", "F", "O"].map((letter) => (
+                    {["E", "C"].map((letter) => (
                       <div
                         key={`prev-${letter}`}
                         className="w-12 h-15 bg-[#0a1f22]/60 border border-white/10 rounded-lg flex items-center justify-center opacity-40"
@@ -462,7 +435,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                       </div>
                     ))}
                     <div className="w-px h-12 bg-teal-500/30 mx-1" />
-                    {["A", "R"].map((letter, i) => (
+                    {resultKey.split("-").map((letter, i) => (
                       <motion.div
                         key={letter}
                         initial={{ opacity: 0, scale: 0, rotateY: 180 }}
@@ -482,7 +455,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                     ))}
                   </div>
                   <p className="text-gray-600 text-xs mt-4 font-[JetBrains_Mono,monospace]">
-                    FRAGMENT 3 OF ? // COLLECTED: E, C, F, O, A, R
+                    FRAGMENT 3 OF ? // COLLECTED: E, C, {resultKey.replace("-", " ,")}
                   </p>
                 </div>
               </motion.div>
@@ -596,10 +569,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
             </motion.div>
 
             {/* Abstract Docs */}
-            {(() => {
-              console.log("DEBUG data.docs:", data.docs);
-              return Array.isArray(data.docs) && data.docs.length > 0;
-            })() && (
+            {Array.isArray(data.docs) && data.docs.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -615,29 +585,24 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {data.docs.map((doc, i) => {
                     if (!doc || typeof doc !== "string") return null;
-                    // doc is like "abstracts/mission1/1_Abstract_Expertenkommentar.PNG"
-                    // Map to direct import
-                    let src;
-                    if (doc.includes("mission1")) {
-                      if (doc.includes("1_Abstract")) src = abstract1_m1;
-                      else if (doc.includes("2_Abstract")) src = abstract2_m1;
-                      else if (doc.includes("3_Abstract")) src = abstract3_m1;
-                    }
+                    const src = getAbstractImage(doc);
                     if (!src) return null;
                     return (
                       <div
                         key={i}
-                        className="bg-white rounded-xl overflow-hidden border border-white/10"
+                        className="bg-white rounded-xl overflow-hidden border border-white/10 cursor-pointer group hover:border-teal-500/50 transition-all"
+                        onClick={() => setExpandedImage(src)}
                       >
-                        <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
+                        <div className="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
                           <p className="text-gray-500 text-xs font-[JetBrains_Mono,monospace]">
                             ABSTRACT {i + 1}
                           </p>
+                          <ZoomIn className="w-3.5 h-3.5 text-gray-400 group-hover:text-teal-500 transition-colors" />
                         </div>
                         <img
                           src={src}
                           alt={`Abstract ${i + 1}`}
-                          className="w-full h-auto object-contain max-h-64"
+                          className="w-full h-auto object-contain max-h-64 group-hover:opacity-90 transition-opacity"
                         />
                       </div>
                     );
@@ -796,6 +761,36 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
           </div>
         </div>
       </div>
+
+      {/* Image Zoom Modal */}
+      {expandedImage && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setExpandedImage(null)}
+        >
+          <div className="relative max-w-6xl max-h-[90vh] flex items-center justify-center">
+            <button
+              onClick={() => setExpandedImage(null)}
+              className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              src={expandedImage}
+              alt="Expanded abstract"
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
