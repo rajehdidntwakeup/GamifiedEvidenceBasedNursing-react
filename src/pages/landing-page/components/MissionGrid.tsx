@@ -64,8 +64,8 @@ export function MissionGrid({ onBack, onSelectMission, missions }: MissionGridPr
           </p>
         </motion.div>
 
-        {/* Mission Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+        {/* Mission List */}
+        <div className="flex flex-col gap-6 max-w-4xl mx-auto">
           {availableMissions.map((mission, index) => (
             <MissionCard
               key={mission.apiMission}
