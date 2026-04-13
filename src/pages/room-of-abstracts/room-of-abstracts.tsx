@@ -135,7 +135,7 @@ function buildTable(questions: TableQuestion[]): MappedTable {
 }
 
 // Build dropdown options per col/row from the questions
-// Uses parsed.col (the first number in "4_2_Autor?") directly as column index
+// Uses parsed.col (the first number in "4_2_Study_Title_And_Autor?") directly as column index
 function buildCellOptions(questions: TableQuestion[]): Map<number, CellOptions> {
   const optionsMap = new Map<number, CellOptions>();
 
@@ -648,7 +648,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                   <thead>
                     <tr className="border-b border-white/10 bg-white/[0.02]">
                       <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs w-8">#</th>
-                      <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Author</th>
+                      <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Study Title & Author</th>
                       <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Pyramid (LoE)</th>
                       <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs">AHCPR</th>
                       <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Study Design</th>
