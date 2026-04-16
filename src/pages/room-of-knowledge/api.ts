@@ -3,7 +3,7 @@
  */
 
 import type { MissionApi, RoomOfKnowledgeQuestionDto, ProceedDto, RoomOfAbstractsResponseDto } from "@/services/api";
-import { fetchApi } from "@/services/api/client";
+import { fetchApi } from "@/shared/api/base-client";
 import { proceedApi } from "@/services/api";
 
 export interface RoomOfKnowledgeApiRequest {

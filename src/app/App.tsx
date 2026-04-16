@@ -2,16 +2,16 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 
 import { AdminDashboard } from "@/pages/admin-dashboard/admin-dashboard";
 import { LandingPage } from "@/pages/landing-page/landing-page";
-import { AuthProvider, useAuth } from "@/services/auth-context";
+import { SessionProvider, useSession } from "@/entities/session";
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useSession();
   return isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
 }
 
 function AppRoutes() {
-  const { logout } = useAuth();
+  const { logout } = useSession();
   
   return (
     <Routes>
@@ -30,10 +30,10 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
+    <SessionProvider>
       <BrowserRouter>
         <AppRoutes />
       </BrowserRouter>
-    </AuthProvider>
+    </SessionProvider>
   );
 }

@@ -6,7 +6,7 @@ import { useNavigate } from "react-router";
 import { PasswordGate } from "@/features/password-gate";
 import { adminApi, gameApi } from "@/services/api";
 import type { AuthResponse, MissionDto } from "@/services/api";
-import { useAuth } from "@/services/auth-context";
+import { useSession } from "@/entities/session";
 
 import { AuthModal } from "./components/AuthModal";
 import { MissionGrid } from "./components/MissionGrid";
@@ -24,7 +24,7 @@ export function LandingPage() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isGameRunning, setIsGameRunning] = useState<boolean | null>(null);
   const [landingData, setLandingData] = useState<{ gameId: number; missions: MissionDto[] } | null>(null);
-  const authUser = useAuth();
+  const authUser = useSession();
   const navigate = useNavigate();
 
   // Check if a game is running on mount

@@ -3,77 +3,8 @@
  * This file re-exports from feature-specific API modules
  */
 
-import { fetchApi } from "./api/client";
-
-// ============== AUTH API ==============
-// Public endpoints (no JWT required) - /auth/* paths
-
-export const authApi = {
-  /**
-   * Register a new user
-   * Path: /auth/register
-   */
-  register: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-
-  /**
-   * Login as a user
-   * Path: /auth/login
-   */
-  login: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-
-  /**
-   * Authenticate an existing user (alias for login)
-   * Path: /auth/authenticate
-   */
-  authenticate: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/auth/authenticate", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-};
-
-// ============== AUTH API (with /api prefix) ==============
-// Admin-only endpoints - /api/auth/* paths
-
-export const apiAuthApi = {
-  /**
-   * Register a new user (API prefix)
-   * Path: /api/auth/register
-   */
-  register: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-
-  /**
-   * Login as a user (API prefix)
-   * Path: /api/auth/login
-   */
-  login: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-
-  /**
-   * Authenticate a user (API prefix)
-   * Path: /api/auth/authenticate
-   */
-  authenticate: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/api/auth/authenticate", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-};
+import { fetchApi } from "@/shared/api/base-client";
+import type { AuthResponse } from "@/entities/session";
 
 // ============== ADMIN API ==============
 
@@ -214,10 +145,7 @@ export const proceedApi = {
 
 // ============== TYPES ==============
 
-export interface AuthResponse {
-  token: string;
-  admin: boolean;
-}
+export type { AuthResponse };
 
 export interface GameResponseDto {
   gameId: number;
