@@ -13,6 +13,7 @@ import {motion, AnimatePresence} from "motion/react";
 import {useState, useEffect, useCallback} from "react";
 
 import {roomOfKnowledgeApi} from "./api";
+import {roomTimeApi} from "@/services/api";
 import {TOTAL_TIME, loadRoomOfKnowledgeQuestions} from "./room-of-knowledge.data";
 import type {RoomOfKnowledgeProps, RoomQuestion, QuestionResult} from "./room-of-knowledge.data";
 
@@ -20,6 +21,7 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
     const [questions, setQuestions] = useState<RoomQuestion[]>([]);
     const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
     const [questionsError, setQuestionsError] = useState<string | null>(null);
+    const [totalTime, setTotalTime] = useState(TOTAL_TIME);
     const [timeLeft, setTimeLeft] = useState(TOTAL_TIME);
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -41,10 +43,25 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
         setQuestionsError(null);
 
         try {
-            const mappedQuestions = await loadRoomOfKnowledgeQuestions();
+            const {questions: mappedQuestions, timer} = await loadRoomOfKnowledgeQuestions();
 
             setQuestions(mappedQuestions);
-            setTimeLeft(TOTAL_TIME);
+            setTotalTime(timer);
+            setTimeLeft(timer);
+
+            // Fetch the remaining time from server
+            const storedRoomId = sessionStorage.getItem("activeRoomId");
+            const roomId = storedRoomId ? Number(storedRoomId) : 1;
+            try {
+                const serverTime = await roomTimeApi.getHowMuchTimeDoWeHave(roomId);
+                const serverTimeInSeconds = (serverTime.minutes * 60) + serverTime.seconds;
+                if (serverTimeInSeconds > 0) {
+                    setTimeLeft(serverTimeInSeconds);
+                }
+            } catch (error) {
+                console.error("Failed to fetch server time, using initial timer:", error);
+            }
+
             setCurrentQuestion(0);
             setSelectedAnswer(null);
             setIsAnswered(false);
@@ -95,7 +112,7 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
 
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
-    const timerPercent = (timeLeft / TOTAL_TIME) * 100;
+    const timerPercent = (timeLeft / totalTime) * 100;
     const isTimerWarning = timeLeft < 120; // under 2 min
     const isTimerCritical = timeLeft < 60; // under 1 min
 
@@ -447,7 +464,7 @@ export function RoomOfKnowledge({mission, onBack, onProceedToRoom2}: RoomOfKnowl
                                                 console.error("Failed to retry room:", error);
                                             }
 
-                                            setTimeLeft(TOTAL_TIME);
+                                            setTimeLeft(totalTime);
                                             setCurrentQuestion(0);
                                             setSelectedAnswer(null);
                                             setIsAnswered(false);

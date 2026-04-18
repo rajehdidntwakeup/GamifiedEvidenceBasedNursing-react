@@ -55,9 +55,15 @@ function mapApiQuestionsToRoomQuestions(apiQuestions: RoomOfKnowledgeQuestionDto
     .filter((question): question is RoomQuestion => question !== null);
 }
 
-export async function loadRoomOfKnowledgeQuestions(): Promise<RoomQuestion[]> {
-  // Get questions from sessionStorage where they were stored after /api/game/mission/enter
+export interface RoomOfKnowledgeData {
+  questions: RoomQuestion[];
+  timer: number;
+}
+
+export async function loadRoomOfKnowledgeQuestions(): Promise<RoomOfKnowledgeData> {
+  // Get questions and timer from sessionStorage where they were stored after /api/game/mission/enter
   const storedQuestions = sessionStorage.getItem("missionQuestions");
+  const storedTimer = sessionStorage.getItem("missionTimer");
 
   if (!storedQuestions) {
     throw new Error("No questions found. Please select a mission first.");
@@ -66,12 +72,16 @@ export async function loadRoomOfKnowledgeQuestions(): Promise<RoomQuestion[]> {
   try {
     const apiQuestions: RoomOfKnowledgeQuestionDto[] = JSON.parse(storedQuestions);
     const mappedQuestions = mapApiQuestionsToRoomQuestions(apiQuestions);
+    const timer = storedTimer ? Number(storedTimer) : TOTAL_TIME;
 
     if (mappedQuestions.length === 0) {
       throw new Error("No questions were returned for this mission.");
     }
 
-    return mappedQuestions;
+    return {
+      questions: mappedQuestions,
+      timer,
+    };
   } catch {
     throw new Error("Failed to load questions from server.");
   }

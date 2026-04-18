@@ -2,7 +2,7 @@ import { X, UserPlus, LogIn } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 
-import { useAuth } from "@/services/auth-context";
+import { useSession } from "@/entities/session";
 
 type AuthMode = "login" | "register";
 
@@ -51,7 +51,7 @@ export function AuthModal({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   
-  const { login, register, isLoading, error, clearError } = useAuth();
+  const { login, register, isLoading, error, clearError } = useSession();
 
   if (!isOpen) return null;
 

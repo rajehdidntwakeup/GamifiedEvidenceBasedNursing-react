@@ -14,6 +14,7 @@ import { motion } from "motion/react";
 import { useState, useEffect } from "react";
 
 import { roomOfAbstractsApi } from "./api";
+import { roomTimeApi } from "@/services/api";
 import {
   TOTAL_TIME,
 } from "./room-of-abstracts.data";
@@ -135,7 +136,7 @@ function buildTable(questions: TableQuestion[]): MappedTable {
 }
 
 // Build dropdown options per col/row from the questions
-// Uses parsed.col (the first number in "4_2_Autor?") directly as column index
+// Uses parsed.col (the first number in "4_2_Study_Title_And_Autor?") directly as column index
 function buildCellOptions(questions: TableQuestion[]): Map<number, CellOptions> {
   const optionsMap = new Map<number, CellOptions>();
 
@@ -209,6 +210,20 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
     setTimeLeft(TOTAL_TIME);
     setTimeExpired(false);
     setIsComplete(false);
+
+    // Fetch the remaining time from server
+    const storedRoomId = sessionStorage.getItem("activeRoomId");
+    const roomId = storedRoomId ? Number(storedRoomId) : loaded.roomId;
+    roomTimeApi.getHowMuchTimeDoWeHave(roomId)
+        .then((serverTime) => {
+            const serverTimeInSeconds = (serverTime.minutes * 60) + serverTime.seconds;
+            if (serverTimeInSeconds > 0) {
+                setTimeLeft(serverTimeInSeconds);
+            }
+        })
+        .catch((error) => {
+            console.error("Failed to fetch server time, using initial timer:", error);
+        });
 
     // Load previously collected key from Room of Knowledge
     const storedKey = sessionStorage.getItem("roomOfKnowledgeKey");
@@ -648,7 +663,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                   <thead>
                     <tr className="border-b border-white/10 bg-white/[0.02]">
                       <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs w-8">#</th>
-                      <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Author</th>
+                      <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Study Title & Author</th>
                       <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Pyramid (LoE)</th>
                       <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs">AHCPR</th>
                       <th className="py-3 px-4 text-left text-gray-500 font-[JetBrains_Mono,monospace] text-xs">Study Design</th>

@@ -3,7 +3,7 @@
  */
 
 import type { MissionApi } from "@/services/api";
-import { fetchApi } from "@/services/api/client";
+import { fetchApi } from "@/shared/api/base-client";
 
 export interface RoomOfAnalyticsApiRequest {
   gameId: number;

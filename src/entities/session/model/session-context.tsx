@@ -1,13 +1,12 @@
 /**
- * Authentication Context for managing auth state across the app.
+ * Session Context for managing auth state across the app.
  * Provides login, register, logout functionality with JWT token management.
  */
 
 import React, { createContext, useContext, useState, useCallback } from "react";
+import { authApi, type AuthResponse } from "../api/auth-api";
 
-import { authApi, type AuthResponse } from "./api";
-
-interface AuthContextType {
+interface SessionContextType {
   user: AuthResponse | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -18,9 +17,9 @@ interface AuthContextType {
   clearError: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthResponse | null>(() => {
     const stored = localStorage.getItem("user");
     return stored ? JSON.parse(stored) : null;
@@ -71,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider
+    <SessionContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
@@ -84,16 +83,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </AuthContext.Provider>
+    </SessionContext.Provider>
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
+export function useSession() {
+  const context = useContext(SessionContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error("useSession must be used within a SessionProvider");
   }
   return context;
 }
-
-export default AuthProvider;

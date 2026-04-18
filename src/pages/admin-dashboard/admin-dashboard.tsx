@@ -44,7 +44,6 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [extendModalTeam, setExtendModalTeam] = useState<ActiveTeam | null>(null);
   const [showNewGameModal, setShowNewGameModal] = useState(false);
-  const [newGamePassword, setNewGamePassword] = useState("");
   const [isCreatingGame, setIsCreatingGame] = useState(false);
   const [createGameError, setCreateGameError] = useState<string | null>(null);
   const [createGameResponse, setCreateGameResponse] = useState<GameResponseDto | null>(null);
@@ -140,7 +139,6 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
 
   const handleOpenNewGameModal = () => {
     setShowNewGameModal(true);
-    setNewGamePassword("");
     setCreateGameError(null);
     setCreateGameResponse(null);
   };
@@ -148,31 +146,24 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
   const handleCloseNewGameModal = () => {
     if (isCreatingGame) return;
     setShowNewGameModal(false);
-    setNewGamePassword("");
     setCreateGameError(null);
     setCreateGameResponse(null);
   };
 
-  const handleCreateGame = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmedPassword = newGamePassword.trim();
-    if (!trimmedPassword) {
-      setCreateGameError("Password is required.");
-      return;
-    }
-
+  const handleCreateGame = async () => {
     setIsCreatingGame(true);
     setCreateGameError(null);
     setCreateGameResponse(null);
 
     try {
-      const response = await gameApi.create({ password: trimmedPassword });
+      const response = await gameApi.create();
       localStorage.setItem("activeGameId", String(response.gameId));
       setCreateGameResponse(response);
       setLastRefreshed(new Date());
-      setNewGamePassword("");
+      setShowNewGameModal(true);
     } catch (error) {
       setCreateGameError(error instanceof Error ? error.message : "Failed to create game.");
+      setShowNewGameModal(true);
     } finally {
       setIsCreatingGame(false);
     }
@@ -286,12 +277,19 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                 <RefreshCcw className="w-4 h-4" />
               </button>
               <button
-                onClick={handleOpenNewGameModal}
-                className="flex items-center gap-2 px-4 py-2 bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/30 text-teal-300 rounded-lg transition-colors"
+                onClick={handleCreateGame}
+                disabled={isCreatingGame}
+                className="flex items-center gap-2 px-4 py-2 bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/30 text-teal-300 rounded-lg transition-colors disabled:opacity-50"
                 title="Create a new game"
               >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm">New Game</span>
+                {isCreatingGame ? (
+                  <span className="w-4 h-4 border-2 border-teal-500/30 border-t-teal-300 rounded-full animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline text-sm">
+                  {isCreatingGame ? "Creating..." : "New Game"}
+                </span>
               </button>
               <button
                 onClick={onBack}
@@ -544,25 +542,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                   </div>
                 </div>
 
-                <form onSubmit={handleCreateGame} className="space-y-4">
-                  <div>
-                    <label htmlFor="new-game-password" className="block text-sm text-gray-400 mb-2">
-                      Game Password
-                    </label>
-                    <input
-                      id="new-game-password"
-                      type="text"
-                      value={newGamePassword}
-                      onChange={(e) => setNewGamePassword(e.target.value)}
-                      disabled={isCreatingGame}
-                      placeholder="Enter game password..."
-                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-600 focus:border-teal-500/50 focus:outline-none disabled:opacity-50"
-                    />
-                    <p className="text-gray-500 text-xs mt-2">
-                      Teams use this password to join the new game.
-                    </p>
-                  </div>
-
+                <div className="space-y-4">
                   {createGameError && (
                     <div className="px-3 py-2 bg-red-500/15 border border-red-500/30 rounded-lg text-red-300 text-sm">
                       {createGameError}
@@ -570,33 +550,45 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                   )}
 
                   {createGameResponse && (
-                    <div className="px-3 py-2 bg-green-500/15 border border-green-500/30 rounded-lg text-green-300 text-sm">
-                      Game #{createGameResponse.gameId} created.
-                      {` Mission assignments were generated.`}
+                    <div className="space-y-4">
+                      <div className="px-3 py-2 bg-green-500/15 border border-green-500/30 rounded-lg text-green-300 text-sm">
+                        Game #{createGameResponse.gameId} created successfully.
+                      </div>
+
+                      <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                        <div className="px-4 py-2 border-b border-white/10 bg-white/5">
+                          <span className="text-xs font-[JetBrains_Mono,monospace] text-gray-400">TEAM PASSWORDS</span>
+                        </div>
+                        <div className="divide-y divide-white/5">
+                          {createGameResponse.teamPasswords.map((tp) => (
+                            <div key={tp.teamId} className="px-4 py-3 flex items-center justify-between">
+                              <div>
+                                <p className="text-white text-sm">{tp.mission}</p>
+                                <p className="text-gray-500 text-[10px]">Team ID: {tp.teamId}</p>
+                              </div>
+                              <code className="px-2 py-1 bg-teal-500/10 text-teal-400 rounded text-sm font-bold">
+                                {tp.password}
+                              </code>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-gray-500 text-xs text-center">
+                        Share these passwords with the corresponding teams.
+                      </p>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-end gap-2 pt-2">
+                  <div className="flex items-center justify-end pt-2">
                     <button
                       type="button"
                       onClick={handleCloseNewGameModal}
-                      disabled={isCreatingGame}
-                      className="px-4 py-2 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
+                      className="px-6 py-2 bg-teal-500 hover:bg-teal-400 text-white rounded-lg transition-colors"
                     >
-                      Close
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isCreatingGame}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500 hover:bg-teal-400 text-white rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {isCreatingGame && (
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      )}
-                      {isCreatingGame ? "Creating..." : "Create Game"}
+                      Done
                     </button>
                   </div>
-                </form>
+                </div>
               </motion.div>
             </div>
           )}

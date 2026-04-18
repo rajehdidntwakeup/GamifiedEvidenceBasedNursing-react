@@ -3,77 +3,8 @@
  * This file re-exports from feature-specific API modules
  */
 
-import { fetchApi } from "./api/client";
-
-// ============== AUTH API ==============
-// Public endpoints (no JWT required) - /auth/* paths
-
-export const authApi = {
-  /**
-   * Register a new user
-   * Path: /auth/register
-   */
-  register: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-
-  /**
-   * Login as a user
-   * Path: /auth/login
-   */
-  login: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-
-  /**
-   * Authenticate an existing user (alias for login)
-   * Path: /auth/authenticate
-   */
-  authenticate: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/auth/authenticate", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-};
-
-// ============== AUTH API (with /api prefix) ==============
-// Admin-only endpoints - /api/auth/* paths
-
-export const apiAuthApi = {
-  /**
-   * Register a new user (API prefix)
-   * Path: /api/auth/register
-   */
-  register: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-
-  /**
-   * Login as a user (API prefix)
-   * Path: /api/auth/login
-   */
-  login: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-
-  /**
-   * Authenticate a user (API prefix)
-   * Path: /api/auth/authenticate
-   */
-  authenticate: (credentials: { username: string; password: string }) =>
-    fetchApi<AuthResponse>("/api/auth/authenticate", {
-      method: "POST",
-      body: JSON.stringify(credentials),
-    }),
-};
+import { fetchApi } from "@/shared/api/base-client";
+import type { AuthResponse } from "@/entities/session";
 
 // ============== ADMIN API ==============
 
@@ -92,10 +23,9 @@ export const gameApi = {
    * Create a new game session
    * Path: /api/game/create
    */
-  create: (request: { password: string }) =>
+  create: () =>
     fetchApi<GameResponseDto>("/api/game/create", {
       method: "POST",
-      body: JSON.stringify(request),
     }),
 
   /**
@@ -212,12 +142,27 @@ export const proceedApi = {
     }),
 };
 
+// ============== ROOM TIME API ==============
+
+export interface RoomTimeResponse {
+  minutes: number;
+  seconds: number;
+}
+
+export const roomTimeApi = {
+  /**
+   * Get how much time is left for a room
+   * Path: /api/rooms/howmuchtimedowehave
+   */
+  getHowMuchTimeDoWeHave: (roomId: number) => {
+    const query = new URLSearchParams({ roomId: String(roomId) }).toString();
+    return fetchApi<RoomTimeResponse>(`/api/rooms/howmuchtimedowehave?${query}`);
+  },
+};
+
 // ============== TYPES ==============
 
-export interface AuthResponse {
-  token: string;
-  admin: boolean;
-}
+export type { AuthResponse };
 
 export interface GameResponseDto {
   gameId: number;
@@ -237,6 +182,7 @@ export interface MissionDto {
 export interface EnteringGameResponse {
   missionId: number;
   roomId: number;
+  timer: number;
   questions: RoomOfKnowledgeQuestionDto[];
 }
 

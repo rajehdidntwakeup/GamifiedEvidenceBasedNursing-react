@@ -2,7 +2,7 @@
  * Room of Abstracts API - Feature-specific API functions and types
  */
 
-import { fetchApi } from "@/services/api/client";
+import { fetchApi } from "@/shared/api/base-client";
 
 export interface VerifyAnswer {
   questionId: number;

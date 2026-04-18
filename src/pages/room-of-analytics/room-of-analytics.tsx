@@ -21,6 +21,7 @@ import {
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
 
+import { roomTimeApi } from "@/services/api";
 import { LOE_OPTIONS, METHODOLOGY_MIN_WORDS, STUDIES_BY_MISSION, TOTAL_TIME } from "./room-of-analytics.data";
 import type { RoomOfAnalyticsProps } from "./room-of-analytics.data";
 
@@ -59,6 +60,21 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
   // Timer
   useEffect(() => {
     if (isComplete || timeExpired) return;
+
+    // Fetch the remaining time from server on mount
+    const storedRoomId = sessionStorage.getItem("activeRoomId");
+    const roomId = storedRoomId ? Number(storedRoomId) : 3;
+    roomTimeApi.getHowMuchTimeDoWeHave(roomId)
+        .then((serverTime) => {
+            const serverTimeInSeconds = (serverTime.minutes * 60) + serverTime.seconds;
+            if (serverTimeInSeconds > 0) {
+                setTimeLeft(serverTimeInSeconds);
+            }
+        })
+        .catch((error) => {
+            console.error("Failed to fetch server time, using initial timer:", error);
+        });
+
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {

@@ -242,8 +242,9 @@ export function useMissionState(): [MissionState, MissionActions] {
         missionId: pendingMission.id,
       });
 
-      // Store the questions directly from the API response
+      // Store the questions and timer from the API response
       sessionStorage.setItem("missionQuestions", JSON.stringify(response.questions));
+      sessionStorage.setItem("missionTimer", String(response.timer));
 
       localStorage.setItem(ACTIVE_GAME_ID_STORAGE_KEY, String(gameId));
       sessionStorage.setItem("activeTeamId", String(pendingMission.id));
