@@ -20,6 +20,7 @@ import {
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
 
+import { roomTimeApi } from "@/services/api";
 import { JUSTIFICATION_MIN_WORDS, LOE_OPTIONS, STUDY_PAIRS_BY_MISSION, TOTAL_TIME } from "./room-of-sciencebattle.data";
 import type { RoomOfSciencebattleProps, StudyCompact } from "./room-of-sciencebattle.data";
 
@@ -53,6 +54,21 @@ export function RoomOfSciencebattle({ mission, onBack, onProceedToFinalStage }: 
   // Timer
   useEffect(() => {
     if (isComplete || timeExpired) return;
+
+    // Fetch the remaining time from server on mount
+    const storedRoomId = sessionStorage.getItem("activeRoomId");
+    const roomId = storedRoomId ? Number(storedRoomId) : 4;
+    roomTimeApi.getHowMuchTimeDoWeHave(roomId)
+        .then((serverTime) => {
+            const serverTimeInSeconds = (serverTime.minutes * 60) + serverTime.seconds;
+            if (serverTimeInSeconds > 0) {
+                setTimeLeft(serverTimeInSeconds);
+            }
+        })
+        .catch((error) => {
+            console.error("Failed to fetch server time, using initial timer:", error);
+        });
+
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {

@@ -23,10 +23,9 @@ export const gameApi = {
    * Create a new game session
    * Path: /api/game/create
    */
-  create: (request: { password: string }) =>
+  create: () =>
     fetchApi<GameResponseDto>("/api/game/create", {
       method: "POST",
-      body: JSON.stringify(request),
     }),
 
   /**
@@ -143,6 +142,24 @@ export const proceedApi = {
     }),
 };
 
+// ============== ROOM TIME API ==============
+
+export interface RoomTimeResponse {
+  minutes: number;
+  seconds: number;
+}
+
+export const roomTimeApi = {
+  /**
+   * Get how much time is left for a room
+   * Path: /api/rooms/howmuchtimedowehave
+   */
+  getHowMuchTimeDoWeHave: (roomId: number) => {
+    const query = new URLSearchParams({ roomId: String(roomId) }).toString();
+    return fetchApi<RoomTimeResponse>(`/api/rooms/howmuchtimedowehave?${query}`);
+  },
+};
+
 // ============== TYPES ==============
 
 export type { AuthResponse };
@@ -165,6 +182,7 @@ export interface MissionDto {
 export interface EnteringGameResponse {
   missionId: number;
   roomId: number;
+  timer: number;
   questions: RoomOfKnowledgeQuestionDto[];
 }
 

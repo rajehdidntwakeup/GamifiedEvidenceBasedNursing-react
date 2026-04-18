@@ -14,6 +14,7 @@ import { motion } from "motion/react";
 import { useState, useEffect } from "react";
 
 import { roomOfAbstractsApi } from "./api";
+import { roomTimeApi } from "@/services/api";
 import {
   TOTAL_TIME,
 } from "./room-of-abstracts.data";
@@ -209,6 +210,20 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
     setTimeLeft(TOTAL_TIME);
     setTimeExpired(false);
     setIsComplete(false);
+
+    // Fetch the remaining time from server
+    const storedRoomId = sessionStorage.getItem("activeRoomId");
+    const roomId = storedRoomId ? Number(storedRoomId) : loaded.roomId;
+    roomTimeApi.getHowMuchTimeDoWeHave(roomId)
+        .then((serverTime) => {
+            const serverTimeInSeconds = (serverTime.minutes * 60) + serverTime.seconds;
+            if (serverTimeInSeconds > 0) {
+                setTimeLeft(serverTimeInSeconds);
+            }
+        })
+        .catch((error) => {
+            console.error("Failed to fetch server time, using initial timer:", error);
+        });
 
     // Load previously collected key from Room of Knowledge
     const storedKey = sessionStorage.getItem("roomOfKnowledgeKey");
