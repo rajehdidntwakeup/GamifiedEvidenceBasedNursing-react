@@ -8,20 +8,20 @@ EBNA (Evidence-Based Nursing Academy) Escape Room transforms traditional nursing
 
 ## Tech Stack
 
-| Category | Technology |
-|----------|------------|
-| Framework | React 18 + TypeScript |
-| Build Tool | Vite |
-| Styling | Tailwind CSS |
-| UI Components | Radix UI |
-| Routing | React Router 7 |
-| Animations | Motion |
-| Charts | Recharts |
-| Forms | React Hook Form |
-| Drag & Drop | React DnD |
-| Real-time | STOMP over SockJS |
-| Date Utils | date-fns |
-| Package Manager | pnpm |
+| Category        | Technology            |
+| --------------- | --------------------- |
+| Framework       | React 18 + TypeScript |
+| Build Tool      | Vite                  |
+| Styling         | Tailwind CSS          |
+| UI Components   | Radix UI              |
+| Routing         | React Router 7        |
+| Animations      | Motion                |
+| Charts          | Recharts              |
+| Forms           | React Hook Form       |
+| Drag & Drop     | React DnD             |
+| Real-time       | STOMP over SockJS     |
+| Date Utils      | date-fns              |
+| Package Manager | pnpm                  |
 
 ## Project Structure
 
@@ -46,18 +46,21 @@ src/
 ## Features
 
 ### Core Gameplay
+
 - **Multiple Escape Rooms** — Themed clinical environments (Knowledge, Analytics, Abstracts, Science Battle, Final Stage)
 - **Password-Protected Missions** — Secure access to game content
 - **Real-time Game State** — Live progress tracking via WebSocket
 - **Team Collaboration** — Work with peers to solve challenges
 
 ### Admin Dashboard
+
 - **Live Game Monitoring** — Track active teams and progress
 - **Game Lifecycle Management** — Start new games, set passwords
 - **Team Time Management** — View and extend team timeouts
 - **Performance Analytics** — Historical game data and statistics
 
 ### Authentication
+
 - **Role-Based Access** — Admin and Player roles
 - **Secure Sessions** — Token-based authentication
 - **Registration Control** — Admin can enable/disable registration
@@ -99,13 +102,13 @@ VITE_WS_URL=http://localhost:8080/ws
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start development server |
-| `pnpm build` | Build for production |
-| `pnpm preview` | Preview production build |
+| Command          | Description                  |
+| ---------------- | ---------------------------- |
+| `pnpm dev`       | Start development server     |
+| `pnpm build`     | Build for production         |
+| `pnpm preview`   | Preview production build     |
 | `pnpm typecheck` | Run TypeScript type checking |
-| `pnpm lint` | Run ESLint |
+| `pnpm lint`      | Run ESLint                   |
 
 ## Browser Support
 

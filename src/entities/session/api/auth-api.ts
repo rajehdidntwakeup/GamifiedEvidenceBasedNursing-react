@@ -1,13 +1,13 @@
-import { fetchApi } from "@/shared/api/base-client.ts";
+import { fetchApi } from '@/shared/api/base-client.ts'
 
 export interface AuthResponse {
-  token: string;
-  admin: boolean;
+  token: string
+  admin: boolean
 }
 
 export interface Credentials {
-  username: string;
-  password: string;
+  username: string
+  password: string
 }
 
 // Public endpoints (no JWT required) - /auth/* paths
@@ -17,8 +17,8 @@ export const authApi = {
    * Path: /auth/register
    */
   register: (credentials: Credentials) =>
-    fetchApi<AuthResponse>("/auth/register", {
-      method: "POST",
+    fetchApi<AuthResponse>('/auth/register', {
+      method: 'POST',
       body: JSON.stringify(credentials),
     }),
 
@@ -27,8 +27,8 @@ export const authApi = {
    * Path: /auth/login
    */
   login: (credentials: Credentials) =>
-    fetchApi<AuthResponse>("/auth/login", {
-      method: "POST",
+    fetchApi<AuthResponse>('/auth/login', {
+      method: 'POST',
       body: JSON.stringify(credentials),
     }),
 
@@ -37,11 +37,11 @@ export const authApi = {
    * Path: /auth/authenticate
    */
   authenticate: (credentials: Credentials) =>
-    fetchApi<AuthResponse>("/auth/authenticate", {
-      method: "POST",
+    fetchApi<AuthResponse>('/auth/authenticate', {
+      method: 'POST',
       body: JSON.stringify(credentials),
     }),
-};
+}
 
 // Admin-only endpoints - /api/auth/* paths
 export const apiAuthApi = {
@@ -50,8 +50,8 @@ export const apiAuthApi = {
    * Path: /api/auth/register
    */
   register: (credentials: Credentials) =>
-    fetchApi<AuthResponse>("/api/auth/register", {
-      method: "POST",
+    fetchApi<AuthResponse>('/api/auth/register', {
+      method: 'POST',
       body: JSON.stringify(credentials),
     }),
 
@@ -60,8 +60,8 @@ export const apiAuthApi = {
    * Path: /api/auth/login
    */
   login: (credentials: Credentials) =>
-    fetchApi<AuthResponse>("/api/auth/login", {
-      method: "POST",
+    fetchApi<AuthResponse>('/api/auth/login', {
+      method: 'POST',
       body: JSON.stringify(credentials),
     }),
 
@@ -70,8 +70,8 @@ export const apiAuthApi = {
    * Path: /api/auth/authenticate
    */
   authenticate: (credentials: Credentials) =>
-    fetchApi<AuthResponse>("/api/auth/authenticate", {
-      method: "POST",
+    fetchApi<AuthResponse>('/api/auth/authenticate', {
+      method: 'POST',
       body: JSON.stringify(credentials),
     }),
-};
+}

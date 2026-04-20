@@ -2,17 +2,17 @@
  * Room of Sciencebattle API - Feature-specific API functions and types
  */
 
-import type { MissionApi } from "@/services/api";
-import { fetchApi } from "@/shared/api/base-client";
+import type { MissionApi } from '@/services/api'
+import { fetchApi } from '@/shared/api/base-client'
 
 export interface RoomOfSciencebattleApiRequest {
-  gameId: number;
-  mission: MissionApi;
-  password?: string;
+  gameId: number
+  mission: MissionApi
+  password?: string
 }
 
 export interface RoomOfSciencebattleApi {
-  getPairs: (request: RoomOfSciencebattleApiRequest) => Promise<unknown[]>;
+  getPairs: (request: RoomOfSciencebattleApiRequest) => Promise<unknown[]>
 }
 
 export const roomOfSciencebattleApi: RoomOfSciencebattleApi = {
@@ -21,7 +21,7 @@ export const roomOfSciencebattleApi: RoomOfSciencebattleApi = {
       gameId: String(gameId),
       mission,
       ...(password ? { password } : {}),
-    }).toString();
-    return fetchApi<unknown[]>(`/rooms/room-of-sciencebattle?${query}`);
+    }).toString()
+    return fetchApi<unknown[]>(`/rooms/room-of-sciencebattle?${query}`)
   },
-};
+}
