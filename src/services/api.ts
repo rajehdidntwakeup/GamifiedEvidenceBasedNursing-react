@@ -165,8 +165,14 @@ export const roomTimeApi = {
 export type { AuthResponse };
 
 export interface GameResponseDto {
-  gameId: number;
-  teamMissions?: Record<string, string>;
+    gameId: number
+    teamPasswords: TeamPasswordDto[]
+}
+
+export interface TeamPasswordDto {
+    teamId: number
+    mission: string
+    password: string
 }
 
 export interface LandingPageResponse {

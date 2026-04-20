@@ -137,12 +137,6 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
     alertedTeamsRef.current.clear();
   };
 
-  const handleOpenNewGameModal = () => {
-    setShowNewGameModal(true);
-    setCreateGameError(null);
-    setCreateGameResponse(null);
-  };
-
   const handleCloseNewGameModal = () => {
     if (isCreatingGame) return;
     setShowNewGameModal(false);
