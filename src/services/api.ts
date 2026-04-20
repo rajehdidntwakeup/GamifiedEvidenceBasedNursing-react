@@ -3,8 +3,8 @@
  * This file re-exports from feature-specific API modules
  */
 
-import { fetchApi } from "@/shared/api/base-client";
-import type { AuthResponse } from "@/entities/session";
+import type { AuthResponse } from '@/entities/session'
+import { fetchApi } from '@/shared/api/base-client'
 
 // ============== ADMIN API ==============
 
@@ -13,8 +13,8 @@ export const adminApi = {
    * Check if any administrator exists
    * Path: /api/admin/isThereAdmin
    */
-  isThereAdmin: () => fetchApi<boolean>("/api/admin/isThereAdmin"),
-};
+  isThereAdmin: () => fetchApi<boolean>('/api/admin/isThereAdmin'),
+}
 
 // ============== GAME API ==============
 
@@ -24,22 +24,22 @@ export const gameApi = {
    * Path: /api/game/create
    */
   create: () =>
-    fetchApi<GameResponseDto>("/api/game/create", {
-      method: "POST",
+    fetchApi<GameResponseDto>('/api/game/create', {
+      method: 'POST',
     }),
 
   /**
    * Check if a game is currently running
    * Path: /api/game/landing
    */
-  landing: () => fetchApi<boolean>("/api/game/landing"),
+  landing: () => fetchApi<boolean>('/api/game/landing'),
 
   /**
    * Get available missions for landing page
    * Path: /api/game/landing/missions
    */
-  getLandingMissions: () => fetchApi<LandingPageResponse>("/api/game/landing/missions"),
-};
+  getLandingMissions: () => fetchApi<LandingPageResponse>('/api/game/landing/missions'),
+}
 
 // ============== ENTERING MISSION API ==============
 
@@ -48,28 +48,24 @@ export const enteringMissionApi = {
    * Enter the game with a mission
    * Path: /api/game/mission/enter
    */
-  enter: (request: {
-    password: string;
-    gameId: number;
-    missionId: number;
-  }) =>
-    fetchApi<EnteringGameResponse>("/api/game/mission/enter", {
-      method: "POST",
+  enter: (request: { password: string; gameId: number; missionId: number }) =>
+    fetchApi<EnteringGameResponse>('/api/game/mission/enter', {
+      method: 'POST',
       body: JSON.stringify(request),
     }),
-};
+}
 
 // ============== ROOM OF KNOWLEDGE API ==============
 
 export interface VerifyAnswerDto {
-  questionId: number;
-  answerId: number;
-  roomId: number;
+  questionId: number
+  answerId: number
+  roomId: number
 }
 
 export interface ResultDto {
-  progress: number;
-  key: string | null;
+  progress: number
+  key: string | null
 }
 
 export const roomOfKnowledgeApi = {
@@ -85,17 +81,17 @@ export const roomOfKnowledgeApi = {
    * Path: /api/rooms/roomofknowledge/getResult
    */
   getResult: (roomId: number) => {
-    const query = new URLSearchParams({ roomId: String(roomId) }).toString();
-    return fetchApi<ResultDto>(`/api/rooms/roomofknowledge/getResult?${query}`);
+    const query = new URLSearchParams({ roomId: String(roomId) }).toString()
+    return fetchApi<ResultDto>(`/api/rooms/roomofknowledge/getResult?${query}`)
   },
-};
+}
 
 // ============== ROOM OF ABSTRACTS API ==============
 
 export interface VerifyRoomOfAbstractsAnswersDto {
-  roomId: number;
-  missionId: number;
-  answers: QuestionAnswerDto[];
+  roomId: number
+  missionId: number
+  answers: QuestionAnswerDto[]
 }
 
 export const roomOfAbstractsApi = {
@@ -104,30 +100,30 @@ export const roomOfAbstractsApi = {
    * Path: /api/rooms/roomofabstracts/verify
    */
   verifyAnswers: (request: VerifyRoomOfAbstractsAnswersDto) =>
-    fetchApi<ResultDto>("/api/rooms/roomofabstracts/verify", {
-      method: "POST",
+    fetchApi<ResultDto>('/api/rooms/roomofabstracts/verify', {
+      method: 'POST',
       body: JSON.stringify(request),
     }),
-};
+}
 
 // ============== PROCEED TO NEXT ROOM API ==============
 
 export interface ProceedDto {
-  roomId: number;
+  roomId: number
 }
 
 export interface RoomOfAbstractsResponseDto {
-  roomId: number;
-  missionId: number;
-  mainQuestion: string;
-  docs: string[];
-  questions: TableQuestionDto[];
+  roomId: number
+  missionId: number
+  mainQuestion: string
+  docs: string[]
+  questions: TableQuestionDto[]
 }
 
 export interface TableQuestionDto {
-  questionId: number;
-  question: string;
-  answers: string[];
+  questionId: number
+  question: string
+  answers: string[]
 }
 
 export const proceedApi = {
@@ -136,17 +132,17 @@ export const proceedApi = {
    * Path: /api/game/proceed/abstracts
    */
   toNextRoom: (request: ProceedDto) =>
-    fetchApi<RoomOfAbstractsResponseDto>("/api/game/proceed/abstracts", {
-      method: "POST",
+    fetchApi<RoomOfAbstractsResponseDto>('/api/game/proceed/abstracts', {
+      method: 'POST',
       body: JSON.stringify(request),
     }),
-};
+}
 
 // ============== ROOM TIME API ==============
 
 export interface RoomTimeResponse {
-  minutes: number;
-  seconds: number;
+  minutes: number
+  seconds: number
 }
 
 export const roomTimeApi = {
@@ -155,85 +151,85 @@ export const roomTimeApi = {
    * Path: /api/rooms/howmuchtimedowehave
    */
   getHowMuchTimeDoWeHave: (roomId: number) => {
-    const query = new URLSearchParams({ roomId: String(roomId) }).toString();
-    return fetchApi<RoomTimeResponse>(`/api/rooms/howmuchtimedowehave?${query}`);
+    const query = new URLSearchParams({ roomId: String(roomId) }).toString()
+    return fetchApi<RoomTimeResponse>(`/api/rooms/howmuchtimedowehave?${query}`)
   },
-};
+}
 
 // ============== TYPES ==============
 
-export type { AuthResponse };
+export type { AuthResponse }
 
 export interface GameResponseDto {
-    gameId: number
-    teamPasswords: TeamPasswordDto[]
+  gameId: number
+  teamPasswords: TeamPasswordDto[]
 }
 
 export interface TeamPasswordDto {
-    teamId: number
-    mission: string
-    password: string
+  teamId: number
+  mission: string
+  password: string
 }
 
 export interface LandingPageResponse {
-  gameId: number;
-  missions: MissionDto[];
+  gameId: number
+  missions: MissionDto[]
 }
 
 export interface MissionDto {
-  missionId: number;
-  missionName: string;
+  missionId: number
+  missionName: string
 }
 
 export interface EnteringGameResponse {
-  missionId: number;
-  roomId: number;
-  timer: number;
-  questions: RoomOfKnowledgeQuestionDto[];
+  missionId: number
+  roomId: number
+  timer: number
+  questions: RoomOfKnowledgeQuestionDto[]
 }
 
 export interface RoomOfKnowledgeQuestionDto {
-  questionId: number;
-  question: string;
-  answers: AnswerDto[];
+  questionId: number
+  question: string
+  answers: AnswerDto[]
 }
 
 export interface AnswerDto {
-  answerId: number;
-  answer: string;
-  isCorrect?: boolean;
-  correct?: boolean;
+  answerId: number
+  answer: string
+  isCorrect?: boolean
+  correct?: boolean
 }
 
 export interface QuestionAnswerDto {
-  questionId: number;
-  answerId: number;
+  questionId: number
+  answerId: number
 }
 
 // ============== MISSION API TYPE ==============
 
 export type MissionApi =
-  | "WOUND_CARE_FOR_PRESSURE_ULCERS"
-  | "FALL_PREVENTION_IN_GERIATRICS"
-  | "PAIN_MANAGEMENT_IN_POSTOPERATIVE_CARE"
-  | "NUTRITIONAL_INTERVENTIONS_FOR_MALNUTRITION"
-  | "PREVENTION_OF_CATHETER_ASSOCIATED_URINARY_TRACT_INFECTIONS";
+  | 'WOUND_CARE_FOR_PRESSURE_ULCERS'
+  | 'FALL_PREVENTION_IN_GERIATRICS'
+  | 'PAIN_MANAGEMENT_IN_POSTOPERATIVE_CARE'
+  | 'NUTRITIONAL_INTERVENTIONS_FOR_MALNUTRITION'
+  | 'PREVENTION_OF_CATHETER_ASSOCIATED_URINARY_TRACT_INFECTIONS'
 
 // ============== ROOM OF ABSTRACTS TYPES ==============
 
 export interface RoomOfAbstractsArticleDto {
-  id: number;
-  title: string;
-  authors: string;
-  journal: string;
-  year: number;
-  abstract: string;
-  correctAnswers: RoomOfAbstractsCorrectAnswersDto;
+  id: number
+  title: string
+  authors: string
+  journal: string
+  year: number
+  abstract: string
+  correctAnswers: RoomOfAbstractsCorrectAnswersDto
 }
 
 export interface RoomOfAbstractsCorrectAnswersDto {
-  titleAuthor: string;
-  pyramid: string;
-  ahcpr: string;
-  studyDesign: string;
+  titleAuthor: string
+  pyramid: string
+  ahcpr: string
+  studyDesign: string
 }

@@ -1,23 +1,23 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
 
-import { AdminDashboard } from "@/pages/admin-dashboard/admin-dashboard";
-import { LandingPage } from "@/pages/landing-page/landing-page";
-import { SessionProvider, useSession } from "@/entities/session";
+import { SessionProvider, useSession } from '@/entities/session'
+import { AdminDashboard } from '@/pages/admin-dashboard/admin-dashboard'
+import { LandingPage } from '@/pages/landing-page/landing-page'
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useSession();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
+  const { isAuthenticated } = useSession()
+  return isAuthenticated ? <>{children}</> : <Navigate to='/' replace />
 }
 
 function AppRoutes() {
-  const { logout } = useSession();
-  
+  const { logout } = useSession()
+
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path='/' element={<LandingPage />} />
       <Route
-        path="/admin"
+        path='/admin'
         element={
           <ProtectedRoute>
             <AdminDashboard onBack={logout} />
@@ -25,7 +25,7 @@ function AppRoutes() {
         }
       />
     </Routes>
-  );
+  )
 }
 
 export default function App() {
@@ -35,5 +35,5 @@ export default function App() {
         <AppRoutes />
       </BrowserRouter>
     </SessionProvider>
-  );
+  )
 }
