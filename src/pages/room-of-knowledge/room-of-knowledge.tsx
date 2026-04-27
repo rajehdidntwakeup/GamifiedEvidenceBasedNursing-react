@@ -460,11 +460,25 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
 
                     try {
                       await roomOfKnowledgeApi.retryRoom(roomId)
+
+                      // Fetch the remaining time from server after retry
+                      try {
+                        const serverTime = await roomTimeApi.getHowMuchTimeDoWeHave(roomId)
+                        const serverTimeInSeconds = serverTime.minutes * 60 + serverTime.seconds
+                        if (serverTimeInSeconds > 0) {
+                          setTimeLeft(serverTimeInSeconds)
+                        } else {
+                          setTimeLeft(totalTime)
+                        }
+                      } catch (timeError) {
+                        console.error('Failed to fetch server time after retry:', timeError)
+                        setTimeLeft(totalTime)
+                      }
                     } catch (error) {
                       console.error('Failed to retry room:', error)
+                      setTimeLeft(totalTime)
                     }
 
-                    setTimeLeft(totalTime)
                     setCurrentQuestion(0)
                     setSelectedAnswer(null)
                     setIsAnswered(false)
