@@ -224,7 +224,7 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
 
   if (isLoadingQuestions) {
     return (
-      <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]'>
+      <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-hidden font-[Inter,sans-serif]'>
         <div
           className='absolute inset-0 z-0 opacity-5'
           style={{
@@ -245,7 +245,7 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
 
   if (questionsError || !q) {
     return (
-      <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]'>
+      <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-hidden font-[Inter,sans-serif]'>
         <div
           className='absolute inset-0 z-0 opacity-5'
           style={{
@@ -521,7 +521,7 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
   }
 
   return (
-    <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]'>
+    <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-hidden font-[Inter,sans-serif]'>
       {/* Grid overlay */}
       <div
         className='absolute inset-0 z-0 opacity-5'
