@@ -8,12 +8,35 @@ import { fetchApi } from '@/shared/api/base-client'
 
 // ============== ADMIN API ==============
 
+export interface QuestionFeedbackDto {
+  questionId: number
+  answer: string
+  approved: boolean
+}
+
+export interface AnalyticsSubmissionFeedbackDto {
+  roomId: number
+  loeQuestionId: number
+  loeAnswer: string
+  questions: QuestionFeedbackDto[]
+}
+
 export const adminApi = {
   /**
    * Check if any administrator exists
    * Path: /api/admin/isThereAdmin
    */
   isThereAdmin: () => fetchApi<boolean>('/api/admin/isThereAdmin'),
+
+  /**
+   * Submit feedback for an analytics submission
+   * Path: /api/admin/submission/analytics
+   */
+  submitFeedback: (request: AnalyticsSubmissionFeedbackDto) =>
+    fetchApi<string>('/api/admin/submission/analytics', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
 }
 
 // ============== GAME API ==============
@@ -39,6 +62,12 @@ export const gameApi = {
    * Path: /api/game/landing/missions
    */
   getLandingMissions: () => fetchApi<LandingPageResponse>('/api/game/landing/missions'),
+
+  /**
+   * Get the current active game session ID
+   * Path: /api/game/landing/session-id
+   */
+  getGameSessionId: () => fetchApi<number>('/api/game/landing/session-id'),
 }
 
 // ============== ENTERING MISSION API ==============
@@ -106,6 +135,32 @@ export const roomOfAbstractsApi = {
     }),
 }
 
+// ============== ROOM OF ANALYTICS API ==============
+
+export interface OpenQuestionSubmissionDto {
+  questionId: number
+  answer: string
+}
+
+export interface SubmissionDto {
+  roomId: number
+  levelofEvidenceQuestionId: number
+  levelofEvidencAnswer: string
+  openQuestions: OpenQuestionSubmissionDto[]
+}
+
+export const roomOfAnalyticsApi = {
+  /**
+   * Submit answers for Room of Analytics
+   * Path: /api/rooms/roomofanalytics/submit
+   */
+  submit: (request: SubmissionDto) =>
+    fetchApi<string>('/api/rooms/roomofanalytics/submit', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
+}
+
 // ============== PROCEED TO NEXT ROOM API ==============
 
 export interface ProceedDto {
@@ -126,6 +181,20 @@ export interface TableQuestionDto {
   answers: string[]
 }
 
+export interface RoomResponseDto {
+  roomId: number
+  missionId: number
+  mainQuestion: string
+  docs: string[]
+  questions: QuestionDto[]
+}
+
+export interface QuestionDto {
+  questionId: number
+  question: string
+  answers: AnswerDto[]
+}
+
 export const proceedApi = {
   /**
    * Proceed to the next room (Room of Abstracts)
@@ -133,6 +202,16 @@ export const proceedApi = {
    */
   toNextRoom: (request: ProceedDto) =>
     fetchApi<RoomOfAbstractsResponseDto>('/api/game/proceed/abstracts', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
+
+  /**
+   * Proceed to the Room of Analytics
+   * Path: /api/game/proceed/analytics
+   */
+  toAnalyticsRoom: (request: ProceedDto) =>
+    fetchApi<RoomResponseDto>('/api/game/proceed/analytics', {
       method: 'POST',
       body: JSON.stringify(request),
     }),

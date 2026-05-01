@@ -6,9 +6,9 @@ import type { MissionApi } from '@/services/api'
 import { MISSIONS } from '../landing-page.data'
 import type { LandingMission } from '../landing-page.data'
 
-const ACTIVE_MISSION_ID_STORAGE_KEY = 'activeMissionId'
+export const ACTIVE_MISSION_ID_STORAGE_KEY = 'activeMissionId'
 const ACTIVE_ROOM_STORAGE_KEY = 'activeRoom'
-const ACTIVE_GAME_ID_STORAGE_KEY = 'activeGameId'
+export const ACTIVE_GAME_ID_STORAGE_KEY = 'activeGameId'
 const MAX_GAME_ID_DISCOVERY = 100_000
 
 function parseStoredRoom(rawRoom: string | null): number {
@@ -25,7 +25,7 @@ function getStoredMission(): LandingMission | null {
 }
 
 function getStoredGameId(): number | null {
-  const rawGameId = localStorage.getItem(ACTIVE_GAME_ID_STORAGE_KEY)
+  const rawGameId = sessionStorage.getItem(ACTIVE_GAME_ID_STORAGE_KEY)
   const gameId = Number(rawGameId)
   if (!Number.isInteger(gameId) || gameId <= 0) {
     return null
@@ -98,7 +98,7 @@ async function resolveGameId(mission: MissionApi): Promise<number | null> {
     return null
   }
 
-  localStorage.setItem(ACTIVE_GAME_ID_STORAGE_KEY, String(discoveredGameId))
+  sessionStorage.setItem(ACTIVE_GAME_ID_STORAGE_KEY, String(discoveredGameId))
   return discoveredGameId
 }
 
@@ -246,7 +246,7 @@ export function useMissionState(): [MissionState, MissionActions] {
       sessionStorage.setItem('missionQuestions', JSON.stringify(response.questions))
       sessionStorage.setItem('missionTimer', String(response.timer))
 
-      localStorage.setItem(ACTIVE_GAME_ID_STORAGE_KEY, String(gameId))
+      sessionStorage.setItem(ACTIVE_GAME_ID_STORAGE_KEY, String(gameId))
       sessionStorage.setItem('activeTeamId', String(pendingMission.id))
       sessionStorage.setItem('activeRoomId', String(response.roomId))
       setActiveMission(pendingMission)

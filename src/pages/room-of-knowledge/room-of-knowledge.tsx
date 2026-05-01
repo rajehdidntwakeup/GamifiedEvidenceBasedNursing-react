@@ -114,7 +114,7 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
 
   const minutes = Math.floor(timeLeft / 60)
   const seconds = timeLeft % 60
-  const timerPercent = (timeLeft / totalTime) * 100
+  const timerPercent = Math.max(0, Math.min(100, (timeLeft / (totalTime || 1)) * 100))
   const isTimerWarning = timeLeft < 120 // under 2 min
   const isTimerCritical = timeLeft < 60 // under 1 min
 
@@ -575,7 +575,7 @@ export function RoomOfKnowledge({ mission, onBack, onProceedToRoom2 }: RoomOfKno
             className={`h-full ${
               isTimerCritical ? 'bg-red-500' : isTimerWarning ? 'bg-orange-500' : 'bg-teal-500'
             }`}
-            style={{ width: `${timerPercent}%` }}
+            animate={{ width: `${timerPercent}%` }}
             transition={{ duration: 0.5 }}
           />
         </div>

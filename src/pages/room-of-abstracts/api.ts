@@ -2,6 +2,8 @@
  * Room of Abstracts API - Feature-specific API functions and types
  */
 
+import type { ProceedDto, RoomResponseDto } from '@/services/api'
+import { proceedApi } from '@/services/api'
 import { fetchApi } from '@/shared/api/base-client'
 
 export interface VerifyAnswer {
@@ -16,6 +18,7 @@ export interface RoomOfAbstractsApi {
     answers: VerifyAnswer[]
   }) => Promise<{ progress: number; key: string | null }>
   retryRoom: (roomId: number) => Promise<number>
+  proceed: (request: ProceedDto) => Promise<RoomResponseDto>
 }
 
 export const roomOfAbstractsApi: RoomOfAbstractsApi = {
@@ -28,5 +31,8 @@ export const roomOfAbstractsApi: RoomOfAbstractsApi = {
     return fetchApi<number>(`/api/rooms/retry/abstracts?roomId=${roomId}`, {
       method: 'PUT',
     })
+  },
+  proceed: (request: ProceedDto) => {
+    return proceedApi.toAnalyticsRoom(request)
   },
 }

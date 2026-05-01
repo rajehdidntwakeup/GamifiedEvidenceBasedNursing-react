@@ -266,7 +266,7 @@ export const MOCK_PAST_GAMES: PastGame[] = [
   },
 ]
 
-export type Tab = 'monitor' | 'history'
+export type Tab = 'monitor' | 'history' | 'submissions'
 export type SortField = 'date' | 'mission' | 'winner' | 'teams' | 'time' | 'score'
 export type SortDir = 'asc' | 'desc'
 

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
 
+import { NotificationProvider } from '@/entities/notification'
 import { SessionProvider, useSession } from '@/entities/session'
 import { AdminDashboard } from '@/pages/admin-dashboard/admin-dashboard'
 import { LandingPage } from '@/pages/landing-page/landing-page'
@@ -31,9 +32,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <SessionProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <NotificationProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </NotificationProvider>
     </SessionProvider>
   )
 }

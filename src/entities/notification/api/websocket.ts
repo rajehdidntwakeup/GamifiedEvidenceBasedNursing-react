@@ -1,0 +1,94 @@
+import { Client, IMessage, StompSubscription } from '@stomp/stompjs'
+
+import type { AdminNotification, AnalyticsFeedbackDto } from '../model/types'
+
+// Spring Boot SockJS endpoint exposes raw WebSocket at /ws/websocket
+const WS_BASE = import.meta.env.VITE_WS_URL || 'http://localhost:8080/ws'
+const WS_URL = WS_BASE.replace(/^http/, 'ws') + '/websocket'
+
+let stompClient: Client | null = null
+let subscription: StompSubscription | null = null
+
+export function connectWebSocket(token: string, onMessage: (msg: AdminNotification) => void) {
+  if (stompClient?.active) return
+
+  stompClient = new Client({
+    brokerURL: WS_URL,
+    connectHeaders: {
+      Authorization: `Bearer ${token}`,
+    },
+    debug: (str) => {
+      if (import.meta.env.DEV) console.log(str)
+    },
+    reconnectDelay: 5000,
+    heartbeatIncoming: 4000,
+    heartbeatOutgoing: 4000,
+    onConnect: () => {
+      subscription = stompClient!.subscribe('/topic/analytics/submissions', (message: IMessage) => {
+        const body = JSON.parse(message.body)
+        onMessage(body)
+      })
+    },
+    onStompError: (frame) => {
+      console.error('Broker error: ' + frame.headers['message'])
+    },
+  })
+
+  stompClient.activate()
+}
+
+export function disconnectWebSocket() {
+  subscription?.unsubscribe()
+  stompClient?.deactivate()
+  subscription = null
+  stompClient = null
+}
+
+// Player-side: listen for admin feedback on a specific mission
+let playerStompClient: Client | null = null
+let playerSubscription: StompSubscription | null = null
+
+export function connectPlayerFeedbackWs(
+  token: string | undefined,
+  missionName: string,
+  onFeedback: (msg: AnalyticsFeedbackDto) => void,
+) {
+  if (playerStompClient?.active) return
+
+  const connectHeaders: Record<string, string> = {}
+  if (token) {
+    connectHeaders.Authorization = `Bearer ${token}`
+  }
+
+  playerStompClient = new Client({
+    brokerURL: WS_URL,
+    connectHeaders,
+    debug: (str) => {
+      if (import.meta.env.DEV) console.log('[player-ws]', str)
+    },
+    reconnectDelay: 5000,
+    heartbeatIncoming: 4000,
+    heartbeatOutgoing: 4000,
+    onConnect: () => {
+      playerSubscription = playerStompClient!.subscribe(
+        `/topic/mission/analytics/${missionName}/feedback`,
+        (message: IMessage) => {
+          const body = JSON.parse(message.body)
+          onFeedback(body)
+        },
+      )
+    },
+    onStompError: (frame) => {
+      console.error('Player WS broker error: ' + frame.headers['message'])
+    },
+  })
+
+  playerStompClient.activate()
+}
+
+export function disconnectPlayerFeedbackWs() {
+  playerSubscription?.unsubscribe()
+  playerStompClient?.deactivate()
+  playerSubscription = null
+  playerStompClient = null
+}

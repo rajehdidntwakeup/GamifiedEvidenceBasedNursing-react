@@ -17,21 +17,58 @@ import {
   PenLine,
   ShieldCheck,
   ShieldAlert,
+  Loader2,
 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useState, useEffect } from 'react'
 
-import { roomTimeApi } from '@/services/api'
+import { connectPlayerFeedbackWs, disconnectPlayerFeedbackWs } from '@/entities/notification'
+import type { AnalyticsFeedbackDto } from '@/entities/notification'
+import { useSession } from '@/entities/session'
+import { roomTimeApi, roomOfAnalyticsApi } from '@/services/api'
+import m1_pdf from '@/shared/assets/analytics/mission1/1_Zhang_et_al_SystematicReview.pdf?url'
+import m2_pdf from '@/shared/assets/analytics/mission2/1_Effects_of_VR_Games_in_reducing_fall(2023).pdf?url'
+import m3_pdf from '@/shared/assets/analytics/mission3/1_Postoperative_Paintreatment_with_Dementia(2022).pdf?url'
+import m4_pdf from '@/shared/assets/analytics/mission4/1_Intervent_and_prevent_Malnutrition.pdf?url'
+import m5_pdf from '@/shared/assets/analytics/mission5/1_Urin_Sampling_is_associatet_with_reduced_CAUTI(2021).pdf?url'
 
-import {
-  LOE_OPTIONS,
-  METHODOLOGY_MIN_WORDS,
-  STUDIES_BY_MISSION,
-  TOTAL_TIME,
-} from './room-of-analytics.data'
+import { LOE_OPTIONS, STUDIES_BY_MISSION, TOTAL_TIME } from './room-of-analytics.data'
 import type { RoomOfAnalyticsProps } from './room-of-analytics.data'
 
+const analyticsPdfs: Record<string, string> = {
+  '1_Zhang_et_al_SystematicReview.pdf': m1_pdf,
+  '1_Effects_of_VR_Games_in_reducing_fall(2023).pdf': m2_pdf,
+  '1_Postoperative_Paintreatment_with_Dementia(2022).pdf': m3_pdf,
+  '1_Intervent_and_prevent_Malnutrition.pdf': m4_pdf,
+  '1_Urin_Sampling_is_associatet_with_reduced_CAUTI(2021).pdf': m5_pdf,
+}
+
+function getAnalyticsPdf(docPath: string): string | undefined {
+  if (!docPath) return undefined
+  const filename = docPath.split('/').pop()
+  return filename ? analyticsPdfs[filename] : undefined
+}
+
+interface StoredRoomOfAnalyticsData {
+  roomId: number
+  missionId: number
+  mainQuestion: string
+  docs: string[]
+  questions: { questionId: number; question: string; answers: string[] }[]
+}
+
+function loadStoredData(): StoredRoomOfAnalyticsData | null {
+  try {
+    const raw = sessionStorage.getItem('roomOfAnalyticsData')
+    if (!raw) return null
+    return JSON.parse(raw) as StoredRoomOfAnalyticsData
+  } catch {
+    return null
+  }
+}
+
 export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAnalyticsProps) {
+  const { user } = useSession()
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME)
   const [timeExpired, setTimeExpired] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
@@ -45,10 +82,30 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
 
   // LoE selection
   const [selectedLoe, setSelectedLoe] = useState('')
+  const [isWaitingForFeedback, setIsWaitingForFeedback] = useState(
+    () => sessionStorage.getItem('analyticsWaitingForFeedback') === 'true',
+  )
+  const [progress, setProgress] = useState(0)
 
   // Strengths & Weaknesses
   const [strengthsText, setStrengthsText] = useState('')
   const [weaknessText, setWeaknessText] = useState('')
+
+  const [lockedFields, setLockedFields] = useState({
+    methodology: false,
+    results: false,
+    loe: false,
+    strengths: false,
+    weakness: false,
+  })
+
+  const [retryFeedback, setRetryFeedback] = useState<{
+    methodologyOk: boolean
+    resultsOk: boolean
+    loeCorrect: boolean
+    strengthsOk: boolean
+    weaknessOk: boolean
+  } | null>(null)
 
   const [results, setResults] = useState<{
     methodologyOk: boolean
@@ -60,8 +117,98 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
     overallTotal: number
   } | null>(null)
 
+  const [roomData] = useState<StoredRoomOfAnalyticsData | null>(() => loadStoredData())
+
   const studies = STUDIES_BY_MISSION[mission.id] || STUDIES_BY_MISSION[1]
   const study = studies[0]
+  const pdfSrc =
+    roomData && roomData.docs.length > 0 ? getAnalyticsPdf(roomData.docs[0]) : undefined
+
+  const missionName = `mission${mission.id}`
+
+  // Handle admin feedback arriving via WebSocket
+  const handleFeedbackReceived = (feedback: AnalyticsFeedbackDto) => {
+    setProgress(feedback.progress ?? 0)
+    const questionMap = new Map(feedback.questions.map((q) => [q.questionId, q.approved]))
+    const questions = roomData?.questions ?? []
+
+    const findQId = (kw: string[]) => {
+      const kws = kw.map((s) => s.toLowerCase())
+      return questions.find((q) => kws.some((k) => q.question.toLowerCase().includes(k)))
+        ?.questionId
+    }
+
+    const methodologyOk = questionMap.get(findQId(['methodology']) ?? -1) ?? false
+    const resultsOk = questionMap.get(findQId(['result']) ?? -1) ?? false
+    const loeCorrect = questionMap.get(findQId(['level of evidence']) ?? -1) ?? false
+    const strengthsOk = questionMap.get(findQId(['strength']) ?? -1) ?? false
+    const weaknessOk = questionMap.get(findQId(['weakness']) ?? -1) ?? false
+
+    const overallTotal = 5
+    let overallScore = 0
+    if (methodologyOk) overallScore++
+    if (resultsOk) overallScore++
+    if (loeCorrect) overallScore++
+    if (strengthsOk) overallScore++
+    if (weaknessOk) overallScore++
+
+    // All approved → show results screen
+    if (overallScore === overallTotal) {
+      setResults({
+        methodologyOk,
+        resultsOk,
+        loeCorrect,
+        strengthsOk,
+        weaknessOk,
+        overallScore,
+        overallTotal,
+      })
+      setIsWaitingForFeedback(false)
+      setIsComplete(true)
+      disconnectPlayerFeedbackWs()
+      return
+    }
+
+    // Partial approval → stay in room, lock approved, clear rejected
+    setLockedFields({
+      methodology: methodologyOk,
+      results: resultsOk,
+      loe: loeCorrect,
+      strengths: strengthsOk,
+      weakness: weaknessOk,
+    })
+    setRetryFeedback({
+      methodologyOk,
+      resultsOk,
+      loeCorrect,
+      strengthsOk,
+      weaknessOk,
+    })
+    if (!methodologyOk) setMethodologyText('')
+    if (!resultsOk) setResultsText('')
+    if (!loeCorrect) setSelectedLoe('')
+    if (!strengthsOk) setStrengthsText('')
+    if (!weaknessOk) setWeaknessText('')
+    setIsWaitingForFeedback(false)
+    disconnectPlayerFeedbackWs()
+  }
+
+  // Sync waiting state to sessionStorage
+  useEffect(() => {
+    if (isWaitingForFeedback) {
+      sessionStorage.setItem('analyticsWaitingForFeedback', 'true')
+    } else {
+      sessionStorage.removeItem('analyticsWaitingForFeedback')
+    }
+  }, [isWaitingForFeedback])
+
+  // On mount: if already waiting (e.g. page refresh), reconnect WebSocket
+  useEffect(() => {
+    if (!isWaitingForFeedback) return
+    connectPlayerFeedbackWs(user?.token, missionName, handleFeedbackReceived)
+    return () => disconnectPlayerFeedbackWs()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Timer
   useEffect(() => {
@@ -105,38 +252,69 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
   const wordCount = (text: string) => (text.trim() ? text.trim().split(/\s+/).length : 0)
 
   const handleSubmit = () => {
-    const methodologyOk = wordCount(methodologyText) >= METHODOLOGY_MIN_WORDS
-    const resultsOk = wordCount(resultsText) >= 15
-    const loeCorrect = selectedLoe === study.correctAnswers.loe
-    const strengthsOk = wordCount(strengthsText) >= 15
-    const weaknessOk = wordCount(weaknessText) >= 15
+    setIsWaitingForFeedback(true)
+    setRetryFeedback(null)
 
-    // Scoring: 5 tasks
-    const overallTotal = 5
-    let overallScore = 0
-    if (methodologyOk) overallScore++
-    if (resultsOk) overallScore++
-    if (loeCorrect) overallScore++
-    if (strengthsOk) overallScore++
-    if (weaknessOk) overallScore++
+    // Submit to backend — match answers to questions by keyword, never by index
+    const questions = roomData?.questions ?? []
+    const findQId = (kw: string[]) => {
+      const kws = kw.map((s) => s.toLowerCase())
+      return (
+        questions.find((q) => kws.some((k) => q.question.toLowerCase().includes(k)))?.questionId ??
+        0
+      )
+    }
 
-    setResults({
-      methodologyOk,
-      resultsOk,
-      loeCorrect,
-      strengthsOk,
-      weaknessOk,
-      overallScore,
-      overallTotal,
-    })
-    setIsComplete(true)
+    const openQuestions = [
+      { questionId: findQId(['methodology']), answer: methodologyText },
+      { questionId: findQId(['result']), answer: resultsText },
+      { questionId: findQId(['strength']), answer: strengthsText },
+      { questionId: findQId(['weakness']), answer: weaknessText },
+    ].filter((q) => q.questionId !== 0 && q.answer.trim() !== '')
+
+    const roomId = roomData?.roomId ?? (Number(sessionStorage.getItem('activeRoomId')) || 3)
+
+    const loeQuestion = questions.find((q) =>
+      q.question.toLowerCase().includes('level of evidence'),
+    )
+    const loeQuestionId = loeQuestion?.questionId || 0
+    const loeAnswer = selectedLoe
+
+    const openQuestionsWithoutLoe = openQuestions.filter((q) => q.questionId !== loeQuestionId)
+
+    if (openQuestionsWithoutLoe.length > 0 || loeAnswer) {
+      roomOfAnalyticsApi
+        .submit({
+          roomId,
+          openQuestions: openQuestionsWithoutLoe,
+          levelofEvidenceQuestionId: loeQuestionId,
+          levelofEvidencAnswer: loeAnswer,
+        })
+        .then(() => {
+          console.log('Analytics submitted successfully')
+          // Connect to player feedback WebSocket to wait for admin response
+          connectPlayerFeedbackWs(user?.token, missionName, handleFeedbackReceived)
+        })
+        .catch((err) => console.error('Failed to submit analytics:', err))
+    }
   }
 
   const handleRetry = () => {
+    disconnectPlayerFeedbackWs()
     setTimeLeft(TOTAL_TIME)
     setTimeExpired(false)
     setIsComplete(false)
+    setIsWaitingForFeedback(false)
+    setProgress(0)
     setResults(null)
+    setRetryFeedback(null)
+    setLockedFields({
+      methodology: false,
+      results: false,
+      loe: false,
+      strengths: false,
+      weakness: false,
+    })
     setMethodologyText('')
     setResultsText('')
     setSelectedLoe('')
@@ -144,7 +322,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
     setWeaknessText('')
   }
 
-  const passed = results ? results.overallScore >= 3 : false
+  const passed = results ? results.overallScore === 5 : false
   const percentage = results ? Math.round((results.overallScore / results.overallTotal) * 100) : 0
 
   // Study PDF-style viewer modal
@@ -162,42 +340,46 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
           <X className='w-4 h-4 text-gray-700' />
         </button>
 
-        <div className='p-8'>
-          {/* Journal-style header */}
-          <div className='border-b-2 border-gray-800 pb-4 mb-6'>
-            <p className='text-gray-500 text-xs tracking-wider uppercase mb-1'>
-              {study.journal} &bull; {study.year} &bull; Original Research
-            </p>
-            <h2 className='text-gray-900 text-lg' style={{ lineHeight: 1.4 }}>
-              {study.title}
-            </h2>
-            <p className='text-gray-600 text-sm mt-2'>{study.authors}</p>
-          </div>
-
-          {/* Study sections */}
-          {[
-            { key: 'background', label: 'Background' },
-            { key: 'objective', label: 'Objective' },
-            { key: 'methods', label: 'Methods' },
-            { key: 'results', label: 'Results' },
-            { key: 'conclusion', label: 'Conclusion' },
-          ].map((section) => (
-            <div key={section.key} className='mb-5'>
-              <h3 className='text-gray-800 text-sm tracking-wider uppercase mb-2'>
-                {section.label}
-              </h3>
-              <p className='text-gray-700 text-sm' style={{ lineHeight: 1.8 }}>
-                {study.sections[section.key as keyof typeof study.sections]}
+        {pdfSrc ? (
+          <iframe src={pdfSrc} title='Study PDF' className='w-full h-[80vh]' />
+        ) : (
+          <div className='p-8'>
+            {/* Journal-style header */}
+            <div className='border-b-2 border-gray-800 pb-4 mb-6'>
+              <p className='text-gray-500 text-xs tracking-wider uppercase mb-1'>
+                {study.journal} &bull; {study.year} &bull; Original Research
               </p>
+              <h2 className='text-gray-900 text-lg' style={{ lineHeight: 1.4 }}>
+                {study.title}
+              </h2>
+              <p className='text-gray-600 text-sm mt-2'>{study.authors}</p>
             </div>
-          ))}
 
-          <div className='mt-6 pt-4 border-t border-gray-200'>
-            <span className='text-gray-400 text-xs font-[JetBrains_Mono,monospace]'>
-              STUDY DOCUMENT // READ CAREFULLY BEFORE COMPLETING TASKS
-            </span>
+            {/* Study sections */}
+            {[
+              { key: 'background', label: 'Background' },
+              { key: 'objective', label: 'Objective' },
+              { key: 'methods', label: 'Methods' },
+              { key: 'results', label: 'Results' },
+              { key: 'conclusion', label: 'Conclusion' },
+            ].map((section) => (
+              <div key={section.key} className='mb-5'>
+                <h3 className='text-gray-800 text-sm tracking-wider uppercase mb-2'>
+                  {section.label}
+                </h3>
+                <p className='text-gray-700 text-sm' style={{ lineHeight: 1.8 }}>
+                  {study.sections[section.key as keyof typeof study.sections]}
+                </p>
+              </div>
+            ))}
+
+            <div className='mt-6 pt-4 border-t border-gray-200'>
+              <span className='text-gray-400 text-xs font-[JetBrains_Mono,monospace]'>
+                STUDY DOCUMENT // READ CAREFULLY BEFORE COMPLETING TASKS
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </motion.div>
     </div>
   )
@@ -205,7 +387,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
   // Results screen
   if (isComplete && results) {
     return (
-      <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]'>
+      <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto overflow-x-hidden font-[Inter,sans-serif]'>
         <div
           className='absolute inset-0 z-0 opacity-5'
           style={{
@@ -265,7 +447,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                 <div className='flex items-center justify-between text-sm'>
                   <span className='text-gray-500'>{percentage}% tasks passed</span>
                   <span className={passed ? 'text-teal-400' : 'text-orange-400'}>
-                    {passed ? 'PASSED' : '3 of 5 tasks required'}
+                    {passed ? 'PASSED' : 'All 5 tasks required'},
                   </span>
                 </div>
               </div>
@@ -282,9 +464,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                     )}
                     <span className='text-white text-sm'>Methodology Analysis</span>
                     <span className='text-gray-500 text-xs ml-auto font-[JetBrains_Mono,monospace]'>
-                      {results.methodologyOk
-                        ? 'Sufficient detail'
-                        : `Min. ${METHODOLOGY_MIN_WORDS} words required`}
+                      {results.methodologyOk ? 'Sufficient detail' : 'Needs correction'}
                     </span>
                   </div>
                 </div>
@@ -299,7 +479,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                     )}
                     <span className='text-white text-sm'>Results Summary</span>
                     <span className='text-gray-500 text-xs ml-auto font-[JetBrains_Mono,monospace]'>
-                      {results.resultsOk ? 'Sufficient detail' : 'Min. 15 words required'}
+                      {results.resultsOk ? 'Sufficient detail' : 'Needs correction'}
                     </span>
                   </div>
                 </div>
@@ -336,7 +516,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                     )}
                     <span className='text-white text-sm'>Strengths</span>
                     <span className='text-gray-500 text-xs ml-auto font-[JetBrains_Mono,monospace]'>
-                      {results.strengthsOk ? 'Sufficient detail' : 'Min. 15 words required'}
+                      {results.strengthsOk ? 'Sufficient detail' : 'Needs correction'}
                     </span>
                   </div>
                 </div>
@@ -351,7 +531,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                     )}
                     <span className='text-white text-sm'>Weaknesses</span>
                     <span className='text-gray-500 text-xs ml-auto font-[JetBrains_Mono,monospace]'>
-                      {results.weaknessOk ? 'Sufficient detail' : 'Min. 15 words required'}
+                      {results.weaknessOk ? 'Sufficient detail' : 'Needs correction'}
                     </span>
                   </div>
                 </div>
@@ -489,7 +669,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
   // Time expired without submission
   if (isComplete && !results) {
     return (
-      <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]'>
+      <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto overflow-x-hidden font-[Inter,sans-serif]'>
         <div
           className='absolute inset-0 z-0 opacity-5'
           style={{
@@ -537,16 +717,65 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
 
   // Check completeness for submit button
   const canSubmit =
-    wordCount(methodologyText) >= 10 &&
-    wordCount(resultsText) >= 5 &&
+    methodologyText.trim() !== '' &&
+    resultsText.trim() !== '' &&
     selectedLoe !== '' &&
-    wordCount(strengthsText) >= 5 &&
-    wordCount(weaknessText) >= 5
+    strengthsText.trim() !== '' &&
+    weaknessText.trim() !== ''
 
   // Main room UI
   return (
-    <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]'>
+    <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto overflow-x-hidden font-[Inter,sans-serif]'>
       {studyModal}
+
+      {/* Waiting for feedback overlay */}
+      {isWaitingForFeedback && (
+        <div className='fixed inset-0 z-[100] flex items-center justify-center bg-[#0a1f22]/60 backdrop-blur-xl'>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className='text-center p-8 rounded-3xl bg-white/5 border border-white/10 shadow-2xl max-w-sm w-full mx-4'
+          >
+            <div className='relative w-20 h-20 mx-auto mb-6'>
+              <div className='absolute inset-0 rounded-full border-4 border-teal-500/20' />
+              <div className='absolute inset-0 rounded-full border-4 border-t-teal-500 animate-spin' />
+              <div className='absolute inset-0 flex items-center justify-center'>
+                <Loader2 className='w-8 h-8 text-teal-400 animate-pulse' />
+              </div>
+            </div>
+            <h3 className='text-xl text-white mb-2 font-semibold tracking-tight'>
+              Analysis Submitted
+            </h3>
+            <p className='text-gray-400 text-sm mb-6 leading-relaxed'>
+              Your analysis has been sent for review. Please wait for the administrator's feedback
+              to proceed.
+            </p>
+            <div className='w-full bg-gray-700/50 rounded-full h-2 overflow-hidden mb-4'>
+              <motion.div
+                className='bg-teal-500 h-full rounded-full'
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.5 }}
+              />
+            </div>
+            <div className='flex items-center justify-between mb-4'>
+              <span className='text-gray-500 text-xs font-[JetBrains_Mono,monospace]'>
+                Review Progress
+              </span>
+              <span className='text-teal-400 text-xs font-[JetBrains_Mono,monospace]'>
+                {progress}%
+              </span>
+            </div>
+            <div className='inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400'>
+              <span className='w-2 h-2 rounded-full bg-orange-500 animate-ping' />
+              <span className='text-xs font-[JetBrains_Mono,monospace] uppercase tracking-wider'>
+                Waiting for Admin...
+              </span>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Grid overlay */}
       <div
         className='absolute inset-0 z-0 opacity-5'
@@ -600,7 +829,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
             className={`h-full ${
               isTimerCritical ? 'bg-red-500' : isTimerWarning ? 'bg-orange-500' : 'bg-teal-500'
             }`}
-            style={{ width: `${timerPercent}%` }}
+            animate={{ width: `${timerPercent}%` }}
             transition={{ duration: 0.5 }}
           />
         </div>
@@ -634,51 +863,70 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                 transition={{ duration: 0.4, delay: 0.1 }}
                 className='lg:sticky lg:top-0 lg:self-start'
               >
-                <button
-                  type='button'
-                  className='group bg-[#faf9f6] rounded-2xl overflow-hidden cursor-pointer hover:shadow-[0_0_30px_rgba(20,184,166,0.15)] transition-shadow w-full text-left'
-                  onClick={() => setViewingStudy(0)}
-                >
-                  <div className='bg-gray-100 px-6 py-3 border-b border-gray-200 flex items-center justify-between'>
-                    <div className='flex items-center gap-2'>
-                      <FileText className='w-4 h-4 text-gray-500' />
-                      <p className='text-gray-500 text-xs tracking-wider uppercase'>
-                        {study.journal} &bull; {study.year}
-                      </p>
+                {pdfSrc ? (
+                  <div className='bg-[#faf9f6] rounded-2xl overflow-hidden border border-gray-200'>
+                    <div className='bg-gray-100 px-6 py-3 border-b border-gray-200 flex items-center justify-between'>
+                      <div className='flex items-center gap-2'>
+                        <FileText className='w-4 h-4 text-gray-500' />
+                        <p className='text-gray-500 text-xs tracking-wider uppercase'>Study PDF</p>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={() => setViewingStudy(0)}
+                        className='text-xs text-teal-600 hover:text-teal-500 font-[JetBrains_Mono,monospace]'
+                      >
+                        FULL SCREEN →
+                      </button>
                     </div>
-                    <span className='text-xs text-gray-400 font-[JetBrains_Mono,monospace]'>
-                      CLICK TO EXPAND
-                    </span>
+                    <iframe src={pdfSrc} title='Study PDF' className='w-full h-[65vh]' />
                   </div>
-                  <div className='p-6 max-h-[65vh] overflow-y-auto'>
-                    <h3 className='text-gray-900 text-sm mb-2' style={{ lineHeight: 1.5 }}>
-                      {study.title}
-                    </h3>
-                    <p className='text-gray-500 text-xs mb-4'>{study.authors}</p>
-
-                    {[
-                      { key: 'background', label: 'Background' },
-                      { key: 'objective', label: 'Objective' },
-                      { key: 'methods', label: 'Methods' },
-                      { key: 'results', label: 'Results' },
-                      { key: 'conclusion', label: 'Conclusion' },
-                    ].map((section) => (
-                      <div key={section.key} className='mb-4'>
-                        <h4 className='text-gray-700 text-xs tracking-wider uppercase mb-1'>
-                          {section.label}
-                        </h4>
-                        <p className='text-gray-600 text-xs' style={{ lineHeight: 1.7 }}>
-                          {study.sections[section.key as keyof typeof study.sections]}
+                ) : (
+                  <button
+                    type='button'
+                    className='group bg-[#faf9f6] rounded-2xl overflow-hidden cursor-pointer hover:shadow-[0_0_30px_rgba(20,184,166,0.15)] transition-shadow w-full text-left'
+                    onClick={() => setViewingStudy(0)}
+                  >
+                    <div className='bg-gray-100 px-6 py-3 border-b border-gray-200 flex items-center justify-between'>
+                      <div className='flex items-center gap-2'>
+                        <FileText className='w-4 h-4 text-gray-500' />
+                        <p className='text-gray-500 text-xs tracking-wider uppercase'>
+                          {study.journal} &bull; {study.year}
                         </p>
                       </div>
-                    ))}
-
-                    <div className='mt-4 pt-3 border-t border-gray-200 flex items-center gap-2 text-teal-600 opacity-0 group-hover:opacity-100 transition-opacity'>
-                      <Search className='w-4 h-4' />
-                      <span className='text-xs'>Click to view full-screen</span>
+                      <span className='text-xs text-gray-400 font-[JetBrains_Mono,monospace]'>
+                        CLICK TO EXPAND
+                      </span>
                     </div>
-                  </div>
-                </button>
+                    <div className='p-6 max-h-[65vh] overflow-y-auto'>
+                      <h3 className='text-gray-900 text-sm mb-2' style={{ lineHeight: 1.5 }}>
+                        {study.title}
+                      </h3>
+                      <p className='text-gray-500 text-xs mb-4'>{study.authors}</p>
+
+                      {[
+                        { key: 'background', label: 'Background' },
+                        { key: 'objective', label: 'Objective' },
+                        { key: 'methods', label: 'Methods' },
+                        { key: 'results', label: 'Results' },
+                        { key: 'conclusion', label: 'Conclusion' },
+                      ].map((section) => (
+                        <div key={section.key} className='mb-4'>
+                          <h4 className='text-gray-700 text-xs tracking-wider uppercase mb-1'>
+                            {section.label}
+                          </h4>
+                          <p className='text-gray-600 text-xs' style={{ lineHeight: 1.7 }}>
+                            {study.sections[section.key as keyof typeof study.sections]}
+                          </p>
+                        </div>
+                      ))}
+
+                      <div className='mt-4 pt-3 border-t border-gray-200 flex items-center gap-2 text-teal-600 opacity-0 group-hover:opacity-100 transition-opacity'>
+                        <Search className='w-4 h-4' />
+                        <span className='text-xs'>Click to view full-screen</span>
+                      </div>
+                    </div>
+                  </button>
+                )}
               </motion.div>
 
               {/* RIGHT: Analysis Tasks */}
@@ -688,6 +936,20 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                 transition={{ duration: 0.4, delay: 0.2 }}
                 className='space-y-6'
               >
+                {/* Retry feedback banner */}
+                {retryFeedback && (
+                  <div className='bg-orange-500/10 border border-orange-500/30 rounded-xl p-4'>
+                    <div className='flex items-center gap-2 mb-1'>
+                      <AlertTriangle className='w-4 h-4 text-orange-400 shrink-0' />
+                      <span className='text-orange-400 text-sm font-medium'>Feedback Received</span>
+                    </div>
+                    <p className='text-gray-400 text-xs leading-relaxed'>
+                      Some answers were approved and locked. Rejected answers have been cleared —
+                      please correct them and submit again.
+                    </p>
+                  </div>
+                )}
+
                 {/* TASK 1: Methodology */}
                 <div className='bg-white/5 border border-white/10 rounded-2xl overflow-hidden'>
                   <div className='px-5 py-4 border-b border-white/10 flex items-center gap-3'>
@@ -700,28 +962,37 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                         Describe the key methodological elements of this study
                       </p>
                     </div>
+                    {retryFeedback && (
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                          retryFeedback.methodologyOk
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                        }`}
+                      >
+                        {retryFeedback.methodologyOk ? 'Approved' : 'Needs correction'}
+                      </span>
+                    )}
                   </div>
                   <div className='p-5'>
                     <textarea
                       value={methodologyText}
                       onChange={(e) => setMethodologyText(e.target.value)}
+                      disabled={lockedFields.methodology}
                       placeholder='Describe the methodology: Study design, Location/Setting, Target group/Population, Database/Data source, Samples/Sample size, Intervention/Exposure, Outcome measures...'
                       rows={8}
-                      className='w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none text-sm resize-y'
+                      className={`w-full rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:outline-none text-sm resize-y ${
+                        lockedFields.methodology
+                          ? 'bg-white/5 border border-green-500/30 opacity-60 cursor-not-allowed'
+                          : retryFeedback && !retryFeedback.methodologyOk
+                            ? 'bg-white/5 border border-orange-500/30 focus:border-orange-500'
+                            : 'bg-white/5 border border-white/10 focus:border-teal-500'
+                      }`}
                       style={{ lineHeight: 1.7 }}
                     />
-                    <div className='flex items-center justify-between mt-2'>
+                    <div className='mt-2'>
                       <span className='text-gray-600 text-xs'>
                         {wordCount(methodologyText)} words
-                      </span>
-                      <span
-                        className={`text-xs ${
-                          wordCount(methodologyText) >= METHODOLOGY_MIN_WORDS
-                            ? 'text-green-400'
-                            : 'text-gray-600'
-                        }`}
-                      >
-                        Min. {METHODOLOGY_MIN_WORDS} words
                       </span>
                     </div>
                   </div>
@@ -733,31 +1004,42 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                     <div className='w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center'>
                       <PenLine className='w-4 h-4 text-emerald-400' />
                     </div>
-                    <div>
+                    <div className='flex-1'>
                       <span className='text-white text-sm'>The Results</span>
                       <p className='text-gray-500 text-xs'>
                         Summarize the key findings and statistical outcomes
                       </p>
                     </div>
+                    {retryFeedback && (
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                          retryFeedback.resultsOk
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                        }`}
+                      >
+                        {retryFeedback.resultsOk ? 'Approved' : 'Needs correction'}
+                      </span>
+                    )}
                   </div>
                   <div className='p-5'>
                     <textarea
                       value={resultsText}
                       onChange={(e) => setResultsText(e.target.value)}
+                      disabled={lockedFields.results}
                       placeholder='Summarize the main results of the study. Include key statistical findings, significance levels, effect sizes, and any notable outcomes (both significant and non-significant)...'
                       rows={5}
-                      className='w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none text-sm resize-y'
+                      className={`w-full rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:outline-none text-sm resize-y ${
+                        lockedFields.results
+                          ? 'bg-white/5 border border-green-500/30 opacity-60 cursor-not-allowed'
+                          : retryFeedback && !retryFeedback.resultsOk
+                            ? 'bg-white/5 border border-orange-500/30 focus:border-orange-500'
+                            : 'bg-white/5 border border-white/10 focus:border-teal-500'
+                      }`}
                       style={{ lineHeight: 1.7 }}
                     />
-                    <div className='flex items-center justify-between mt-2'>
+                    <div className='mt-2'>
                       <span className='text-gray-600 text-xs'>{wordCount(resultsText)} words</span>
-                      <span
-                        className={`text-xs ${
-                          wordCount(resultsText) >= 15 ? 'text-green-400' : 'text-gray-600'
-                        }`}
-                      >
-                        Min. 15 words
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -768,18 +1050,36 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                     <div className='w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center'>
                       <BarChart3 className='w-4 h-4 text-purple-400' />
                     </div>
-                    <div>
+                    <div className='flex-1'>
                       <span className='text-white text-sm'>Level of Evidence</span>
                       <p className='text-gray-500 text-xs'>
                         Classify this study on the evidence pyramid
                       </p>
                     </div>
+                    {retryFeedback && (
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                          retryFeedback.loeCorrect
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                        }`}
+                      >
+                        {retryFeedback.loeCorrect ? 'Approved' : 'Needs correction'}
+                      </span>
+                    )}
                   </div>
                   <div className='p-5'>
                     <select
                       value={selectedLoe}
                       onChange={(e) => setSelectedLoe(e.target.value)}
-                      className='w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-teal-500 focus:outline-none text-sm appearance-none cursor-pointer'
+                      disabled={lockedFields.loe}
+                      className={`w-full rounded-lg px-4 py-3 text-white focus:outline-none text-sm appearance-none ${
+                        lockedFields.loe
+                          ? 'bg-white/5 border border-green-500/30 opacity-60 cursor-not-allowed'
+                          : retryFeedback && !retryFeedback.loeCorrect
+                            ? 'bg-white/5 border border-orange-500/30 focus:border-orange-500 cursor-pointer'
+                            : 'bg-white/5 border border-white/10 focus:border-teal-500 cursor-pointer'
+                      }`}
                       style={{
                         backgroundImage:
                           "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
@@ -806,33 +1106,44 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                     <div className='w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center'>
                       <ShieldCheck className='w-4 h-4 text-green-400' />
                     </div>
-                    <div>
+                    <div className='flex-1'>
                       <span className='text-white text-sm'>Strengths</span>
                       <p className='text-gray-500 text-xs'>
                         What does this study do well? Identify its methodological and design
                         strengths
                       </p>
                     </div>
+                    {retryFeedback && (
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                          retryFeedback.strengthsOk
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                        }`}
+                      >
+                        {retryFeedback.strengthsOk ? 'Approved' : 'Needs correction'}
+                      </span>
+                    )}
                   </div>
                   <div className='p-5'>
                     <textarea
                       value={strengthsText}
                       onChange={(e) => setStrengthsText(e.target.value)}
+                      disabled={lockedFields.strengths}
                       placeholder='Identify the strengths of this study. Consider aspects like study design rigor, sample size adequacy, blinding, validated outcome measures, appropriate statistical methods, low attrition rates, or strong generalizability...'
                       rows={5}
-                      className='w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none text-sm resize-y'
+                      className={`w-full rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:outline-none text-sm resize-y ${
+                        lockedFields.strengths
+                          ? 'bg-white/5 border border-green-500/30 opacity-60 cursor-not-allowed'
+                          : retryFeedback && !retryFeedback.strengthsOk
+                            ? 'bg-white/5 border border-orange-500/30 focus:border-orange-500'
+                            : 'bg-white/5 border border-white/10 focus:border-teal-500'
+                      }`}
                       style={{ lineHeight: 1.7 }}
                     />
-                    <div className='flex items-center justify-between mt-2'>
+                    <div className='mt-2'>
                       <span className='text-gray-600 text-xs'>
                         {wordCount(strengthsText)} words
-                      </span>
-                      <span
-                        className={`text-xs ${
-                          wordCount(strengthsText) >= 15 ? 'text-green-400' : 'text-gray-600'
-                        }`}
-                      >
-                        Min. 15 words
                       </span>
                     </div>
                   </div>
@@ -844,31 +1155,42 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                     <div className='w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center'>
                       <ShieldAlert className='w-4 h-4 text-orange-400' />
                     </div>
-                    <div>
+                    <div className='flex-1'>
                       <span className='text-white text-sm'>Weaknesses</span>
                       <p className='text-gray-500 text-xs'>
                         Identify limitations, biases, and threats to validity
                       </p>
                     </div>
+                    {retryFeedback && (
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                          retryFeedback.weaknessOk
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                        }`}
+                      >
+                        {retryFeedback.weaknessOk ? 'Approved' : 'Needs correction'}
+                      </span>
+                    )}
                   </div>
                   <div className='p-5'>
                     <textarea
                       value={weaknessText}
                       onChange={(e) => setWeaknessText(e.target.value)}
+                      disabled={lockedFields.weakness}
                       placeholder='Identify the weaknesses and limitations of this study. Consider potential biases (selection, performance, detection, attrition), confounders, lack of blinding or randomization, small sample size, short follow-up, or limited generalizability...'
                       rows={5}
-                      className='w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none text-sm resize-y'
+                      className={`w-full rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:outline-none text-sm resize-y ${
+                        lockedFields.weakness
+                          ? 'bg-white/5 border border-green-500/30 opacity-60 cursor-not-allowed'
+                          : retryFeedback && !retryFeedback.weaknessOk
+                            ? 'bg-white/5 border border-orange-500/30 focus:border-orange-500'
+                            : 'bg-white/5 border border-white/10 focus:border-teal-500'
+                      }`}
                       style={{ lineHeight: 1.7 }}
                     />
-                    <div className='flex items-center justify-between mt-2'>
+                    <div className='mt-2'>
                       <span className='text-gray-600 text-xs'>{wordCount(weaknessText)} words</span>
-                      <span
-                        className={`text-xs ${
-                          wordCount(weaknessText) >= 15 ? 'text-green-400' : 'text-gray-600'
-                        }`}
-                      >
-                        Min. 15 words
-                      </span>
                     </div>
                   </div>
                 </div>

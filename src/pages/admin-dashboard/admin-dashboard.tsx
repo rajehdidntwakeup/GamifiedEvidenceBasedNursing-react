@@ -11,7 +11,6 @@ import {
   Search,
   Crown,
   LogOut,
-  Bell,
   Timer,
   AlertTriangle,
   Clock,
@@ -23,7 +22,8 @@ import { motion, AnimatePresence } from 'motion/react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import React from 'react'
 
-import { gameApi, type GameResponseDto } from '@/services/api'
+import { useAdminWebSocket, useNotification, type QuestionFeedback } from '@/entities/notification'
+import { adminApi, gameApi, type GameResponseDto } from '@/services/api'
 
 import {
   MOCK_ACTIVE_TEAMS,
@@ -33,6 +33,8 @@ import {
   getTimeColor,
 } from './admin-dashboard.data'
 import type { ActiveTeam, SortDir, SortField, Tab, TimeoutAlert } from './admin-dashboard.data'
+import { NotificationBell } from './components/notification-bell'
+import { SubmissionPanel } from './components/submission-panel'
 
 interface AdminDashboardProps {
   onBack?: () => void
@@ -47,13 +49,32 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [lastRefreshed, setLastRefreshed] = useState(new Date())
   const [timeoutAlerts, setTimeoutAlerts] = useState<TimeoutAlert[]>([])
-  const [showNotifications, setShowNotifications] = useState(false)
   const [extendModalTeam, setExtendModalTeam] = useState<ActiveTeam | null>(null)
   const [showNewGameModal, setShowNewGameModal] = useState(false)
   const [isCreatingGame, setIsCreatingGame] = useState(false)
   const [createGameError, setCreateGameError] = useState<string | null>(null)
   const [createGameResponse, setCreateGameResponse] = useState<GameResponseDto | null>(null)
   const alertedTeamsRef = useRef<Set<string>>(new Set())
+
+  // WebSocket subscription for analytics submissions
+  useAdminWebSocket()
+  const { state: notificationState, dispatch: notificationDispatch } = useNotification()
+
+  const handleSubmitFeedback = async (
+    id: number,
+    roomId: number,
+    feedback: QuestionFeedback[],
+    loeQuestionId?: number,
+    loeAnswer?: string,
+  ) => {
+    await adminApi.submitFeedback({
+      roomId,
+      questions: feedback,
+      loeQuestionId: loeQuestionId || 0,
+      loeAnswer: loeAnswer || '',
+    })
+    notificationDispatch({ type: 'REMOVE', payload: id })
+  }
 
   // Countdown timer — ticks every second
   useEffect(() => {
@@ -79,7 +100,6 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                 },
                 ...prev,
               ])
-              setShowNotifications(true)
             }
             return { ...team, timeRemaining: 0, timedOut: true }
           }
@@ -155,7 +175,7 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
 
     try {
       const response = await gameApi.create()
-      localStorage.setItem('activeGameId', String(response.gameId))
+      sessionStorage.setItem('activeGameId', String(response.gameId))
       setCreateGameResponse(response)
       setLastRefreshed(new Date())
       setShowNewGameModal(true)
@@ -266,19 +286,11 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                 Last updated: {lastRefreshed.toLocaleTimeString()}
               </span>
 
-              {/* Notification bell */}
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className='relative p-2 text-gray-400 hover:text-teal-400 bg-white/5 hover:bg-white/10 rounded-lg transition-colors'
-                title='Timeout alerts'
-              >
-                <Bell className='w-4 h-4' />
-                {activeAlerts.length > 0 && (
-                  <span className='absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center animate-pulse'>
-                    {activeAlerts.length}
-                  </span>
-                )}
-              </button>
+              {/* Notifications */}
+              <NotificationBell
+                alertCount={activeAlerts.length}
+                onClick={() => setActiveTab('submissions')}
+              />
 
               <button
                 onClick={handleRefresh}
@@ -369,80 +381,6 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                   )
                 })}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ═══ NOTIFICATION PANEL (dropdown) ═══ */}
-        <AnimatePresence>
-          {showNotifications && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className='absolute top-16 right-6 md:right-10 z-50 w-[360px] max-h-[400px] overflow-y-auto bg-[#0f2a2e] border border-white/10 rounded-2xl shadow-2xl'
-            >
-              <div className='px-4 py-3 border-b border-white/10 flex items-center justify-between'>
-                <div className='flex items-center gap-2'>
-                  <Bell className='w-4 h-4 text-teal-400' />
-                  <span className='text-white text-sm'>Timeout Alerts</span>
-                </div>
-                <button
-                  onClick={() => setShowNotifications(false)}
-                  className='text-gray-500 hover:text-white'
-                >
-                  <X className='w-4 h-4' />
-                </button>
-              </div>
-              {timeoutAlerts.length === 0 ? (
-                <div className='px-4 py-8 text-center'>
-                  <Clock className='w-8 h-8 text-gray-700 mx-auto mb-2' />
-                  <p className='text-gray-500 text-sm'>No timeout alerts yet</p>
-                </div>
-              ) : (
-                <div className='divide-y divide-white/5'>
-                  {timeoutAlerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className={`px-4 py-3 ${alert.dismissed ? 'opacity-50' : ''}`}
-                    >
-                      <div className='flex items-start gap-3'>
-                        <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                            alert.dismissed ? 'bg-gray-500/10' : 'bg-red-500/20'
-                          }`}
-                        >
-                          {alert.dismissed ? (
-                            <Check className='w-3.5 h-3.5 text-green-400' />
-                          ) : (
-                            <AlertTriangle className='w-3.5 h-3.5 text-red-400' />
-                          )}
-                        </div>
-                        <div className='flex-1 min-w-0'>
-                          <p className='text-sm text-gray-300 truncate'>
-                            <span className='text-white'>{alert.teamName}</span>
-                          </p>
-                          <p className='text-gray-500 text-xs'>Timed out in {alert.roomName}</p>
-                          <p className='text-gray-600 text-[10px] font-[JetBrains_Mono,monospace] mt-1'>
-                            {alert.timestamp.toLocaleTimeString()}
-                          </p>
-                        </div>
-                        {!alert.dismissed && (
-                          <button
-                            onClick={() => {
-                              const team = activeTeams.find((t) => t.id === alert.teamId)
-                              if (team) setExtendModalTeam(team)
-                            }}
-                            className='px-2 py-1 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/30 text-orange-300 rounded text-[10px] shrink-0'
-                          >
-                            Extend
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -688,6 +626,25 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
             >
               <Trophy className='w-4 h-4' />
               Game History
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('submissions')
+                notificationDispatch({ type: 'MARK_ALL_READ' })
+              }}
+              className={`px-5 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2 ${
+                activeTab === 'submissions'
+                  ? 'bg-teal-500 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Activity className='w-4 h-4' />
+              Submissions
+              {notificationState.unreadCount > 0 && (
+                <span className='w-5 h-5 bg-orange-500 text-white text-[10px] rounded-full flex items-center justify-center'>
+                  {notificationState.unreadCount}
+                </span>
+              )}
             </button>
           </div>
 
@@ -1212,6 +1169,39 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {/* ═══ SUBMISSIONS TAB ═══ */}
+          {activeTab === 'submissions' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className='mb-6'>
+                <h3 className='text-gray-400 text-xs font-[JetBrains_Mono,monospace] tracking-wider mb-4'>
+                  ANALYTICS SUBMISSIONS
+                </h3>
+              </div>
+
+              {notificationState.notifications.length === 0 ? (
+                <div className='bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-12 text-center'>
+                  <Activity className='w-8 h-8 text-gray-700 mx-auto mb-3' />
+                  <p className='text-gray-500 text-sm'>No submissions yet</p>
+                  <p className='text-gray-600 text-xs mt-1'>
+                    Submissions appear here in real-time when teams complete the Room of Analytics.
+                  </p>
+                </div>
+              ) : (
+                notificationState.notifications.map((n) => (
+                  <SubmissionPanel
+                    key={n.submissionId}
+                    submission={n}
+                    onSubmitFeedback={handleSubmitFeedback}
+                  />
+                ))
+              )}
             </motion.div>
           )}
         </div>
