@@ -187,21 +187,8 @@ export function useMissionState(): [MissionState, MissionActions] {
   }, [])
 
   const handleMissionSelect = useCallback((mission: { id: number; apiMission: string }) => {
-    // Create a LandingMission-like object for backward compatibility
-    const backendMission = {
-      id: mission.id,
-      apiMission: mission.apiMission as MissionApi,
-      title: '',
-      subtitle: '',
-      desc: '',
-      icon: null,
-      xp: 0,
-      color: '',
-      borderColor: '',
-      bgColor: '',
-      textColor: '',
-    }
-    setPendingMission(backendMission)
+    const fullMission = MISSIONS.find((m) => m.id === mission.id) || null
+    setPendingMission(fullMission)
     setMissionPassword('')
     setPasswordError(false)
     setPasswordErrorMessage(null)

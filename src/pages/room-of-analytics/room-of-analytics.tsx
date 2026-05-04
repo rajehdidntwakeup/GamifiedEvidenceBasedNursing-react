@@ -124,7 +124,8 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
   const pdfSrc =
     roomData && roomData.docs.length > 0 ? getAnalyticsPdf(roomData.docs[0]) : undefined
 
-  const missionName = `mission${mission.id}`
+    console.log("RA-Mission: ", mission);
+  const missionName = `${mission.title}`
 
   // Handle admin feedback arriving via WebSocket
   const handleFeedbackReceived = (feedback: AnalyticsFeedbackDto) => {
@@ -278,7 +279,8 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
       q.question.toLowerCase().includes('level of evidence'),
     )
     const loeQuestionId = loeQuestion?.questionId || 0
-    const loeAnswer = selectedLoe
+    const loeOption = LOE_OPTIONS.find((o) => o.value === selectedLoe)
+    const loeAnswer = loeOption?.label || selectedLoe
 
     const openQuestionsWithoutLoe = openQuestions.filter((q) => q.questionId !== loeQuestionId)
 
@@ -290,8 +292,40 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
           levelofEvidenceQuestionId: loeQuestionId,
           levelofEvidencAnswer: loeAnswer,
         })
-        .then(() => {
-          console.log('Analytics submitted successfully')
+        .then((loeCorrect) => {
+          console.log('Analytics submitted successfully, LoE correct:', loeCorrect)
+          const allOpenApproved =
+            lockedFields.methodology &&
+            lockedFields.results &&
+            lockedFields.strengths &&
+            lockedFields.weakness
+          if (allOpenApproved) {
+            if (!loeCorrect) {
+              // All open questions already approved; only LoE wrong — skip waiting
+              setRetryFeedback({
+                methodologyOk: true,
+                resultsOk: true,
+                loeCorrect: false,
+                strengthsOk: true,
+                weaknessOk: true,
+              })
+              setIsWaitingForFeedback(false)
+              return
+            }
+            // All questions correct — show result screen immediately
+            setResults({
+              methodologyOk: true,
+              resultsOk: true,
+              loeCorrect: true,
+              strengthsOk: true,
+              weaknessOk: true,
+              overallScore: 5,
+              overallTotal: 5,
+            })
+            setIsWaitingForFeedback(false)
+            setIsComplete(true)
+            return
+          }
           // Connect to player feedback WebSocket to wait for admin response
           connectPlayerFeedbackWs(user?.token, missionName, handleFeedbackReceived)
         })

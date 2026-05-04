@@ -14,7 +14,7 @@ export interface QuestionFeedback {
 export interface QuestionFeedbackResultDto {
   questionId: number
   approved: boolean
-  answer?: string | null
+  answerText?: string | null
 }
 
 export interface AdminNotification {
@@ -32,7 +32,7 @@ export interface AdminNotification {
 export interface AnalyticsFeedbackDto {
   roomId: number
   missionName: string
-  progress?: number
-  feedbackAt?: string
+  progress: number
+  feedbackAt: string
   questions: QuestionFeedbackResultDto[]
 }

@@ -155,7 +155,7 @@ export const roomOfAnalyticsApi = {
    * Path: /api/rooms/roomofanalytics/submit
    */
   submit: (request: SubmissionDto) =>
-    fetchApi<string>('/api/rooms/roomofanalytics/submit', {
+    fetchApi<boolean>('/api/rooms/roomofanalytics/submit', {
       method: 'POST',
       body: JSON.stringify(request),
     }),
