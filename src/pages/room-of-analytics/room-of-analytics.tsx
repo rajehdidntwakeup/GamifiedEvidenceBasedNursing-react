@@ -90,21 +90,35 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
   const [strengthsText, setStrengthsText] = useState('')
   const [weaknessText, setWeaknessText] = useState('')
 
-  const [lockedFields, setLockedFields] = useState({
-    methodology: false,
-    results: false,
-    loe: false,
-    strengths: false,
-    weakness: false,
+  const [lockedFields, setLockedFields] = useState<{
+    methodology: boolean
+    results: boolean
+    loe: boolean
+    strengths: boolean
+    weakness: boolean
+  }>(() => {
+    try {
+      const raw = sessionStorage.getItem('analyticsLockedFields')
+      if (raw) return JSON.parse(raw)
+    } catch { /* ignore */ }
+    return {
+      methodology: false,
+      results: false,
+      loe: false,
+      strengths: false,
+      weakness: false,
+    }
   })
 
-  const [retryFeedback, setRetryFeedback] = useState<{
-    methodologyOk: boolean
-    resultsOk: boolean
-    loeCorrect: boolean
-    strengthsOk: boolean
-    weaknessOk: boolean
-  } | null>(null)
+  const [retryFeedback, setRetryFeedback] = useState<
+    { methodologyOk: boolean; resultsOk: boolean; loeCorrect: boolean; strengthsOk: boolean; weaknessOk: boolean } | null
+  >(() => {
+    try {
+      const raw = sessionStorage.getItem('analyticsRetryFeedback')
+      if (raw) return JSON.parse(raw)
+    } catch { /* ignore */ }
+    return null
+  })
 
   const [results, setResults] = useState<{
     methodologyOk: boolean
@@ -155,6 +169,9 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
           setIsWaitingForFeedback(false)
           setIsComplete(true)
           disconnectPlayerFeedbackWs()
+          sessionStorage.removeItem('analyticsLockedFields')
+          sessionStorage.removeItem('analyticsRetryFeedback')
+          sessionStorage.removeItem('analyticsWaitingForFeedback')
         }
       })
       .catch((err) => console.error('[AnalyticsResults] error:', err))
@@ -219,6 +236,20 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
       sessionStorage.removeItem('analyticsWaitingForFeedback')
     }
   }, [isWaitingForFeedback])
+
+  // Persist locked fields to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('analyticsLockedFields', JSON.stringify(lockedFields))
+  }, [lockedFields])
+
+  // Persist retry feedback to sessionStorage
+  useEffect(() => {
+    if (retryFeedback) {
+      sessionStorage.setItem('analyticsRetryFeedback', JSON.stringify(retryFeedback))
+    } else {
+      sessionStorage.removeItem('analyticsRetryFeedback')
+    }
+  }, [retryFeedback])
 
   // On mount: if already waiting (e.g. page refresh), reconnect WebSocket
   useEffect(() => {
@@ -374,6 +405,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
     setProgress(0)
     setResults(null)
     setRetryFeedback(null)
+    setBackendKey(null)
     setLockedFields({
       methodology: false,
       results: false,
@@ -381,6 +413,10 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
       strengths: false,
       weakness: false,
     })
+    sessionStorage.removeItem('analyticsLockedFields')
+    sessionStorage.removeItem('analyticsRetryFeedback')
+    sessionStorage.removeItem('analyticsWaitingForFeedback')
+    sessionStorage.removeItem('roomOfAnalyticsKey')
     setMethodologyText('')
     setResultsText('')
     setSelectedLoe('')
@@ -762,13 +798,13 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
     )
   }
 
-  // Check completeness for submit button
+  // Check completeness for submit button — approved (locked) fields don't need re-entry
   const canSubmit =
-    methodologyText.trim() !== '' &&
-    resultsText.trim() !== '' &&
-    selectedLoe !== '' &&
-    strengthsText.trim() !== '' &&
-    weaknessText.trim() !== ''
+    (lockedFields.methodology || methodologyText.trim() !== '') &&
+    (lockedFields.results || resultsText.trim() !== '') &&
+    (lockedFields.loe || selectedLoe !== '') &&
+    (lockedFields.strengths || strengthsText.trim() !== '') &&
+    (lockedFields.weakness || weaknessText.trim() !== '')
 
   // Main room UI
   return (
