@@ -6,39 +6,29 @@ import type { AdminNotification, QuestionFeedback } from '@/entities/notificatio
 
 interface Props {
   submission: AdminNotification
-  onSubmitFeedback: (
-    submissionId: number,
-    roomId: number,
-    feedback: QuestionFeedback[],
-    loeQuestionId?: number,
-    loeAnswer?: string,
-  ) => void
+  notificationId: string
+  onSubmitFeedback: (notificationId: string, roomId: number, feedback: QuestionFeedback[]) => void
 }
 
-export function SubmissionPanel({ submission, onSubmitFeedback }: Props) {
+export function SubmissionPanel({ submission, notificationId, onSubmitFeedback }: Props) {
   const [decisions, setDecisions] = useState<Record<number, boolean | null>>({})
 
   const setDecision = (questionId: number, approved: boolean) => {
     setDecisions((prev) => ({ ...prev, [questionId]: approved }))
   }
 
-  const nonLoeAnswers = submission.answers.filter((a) => !a.isLoe)
-  const allDecided = nonLoeAnswers.every(
+  const allDecided = submission.answers.every(
     (a) => decisions[a.questionId] !== null && decisions[a.questionId] !== undefined,
   )
 
   const handleSubmit = () => {
-    const feedback: QuestionFeedback[] = nonLoeAnswers.map((a) => ({
+    const feedback: QuestionFeedback[] = submission.answers.map((a) => ({
       questionId: a.questionId,
       answer: a.answerText,
       approved: decisions[a.questionId]!,
     }))
 
-    const loeAnswerDetail = submission.answers.find((a) => a.isLoe)
-    const loeQuestionId = submission.loeQuestionId || loeAnswerDetail?.questionId
-    const loeAnswer = submission.loeAnswer || loeAnswerDetail?.answerText
-
-    onSubmitFeedback(submission.submissionId, submission.roomId, feedback, loeQuestionId, loeAnswer)
+    onSubmitFeedback(notificationId, submission.roomId, feedback)
   }
 
   return (
@@ -67,25 +57,6 @@ export function SubmissionPanel({ submission, onSubmitFeedback }: Props) {
 
       <div className='space-y-3'>
         {submission.answers.map((a) => {
-          if (a.isLoe) {
-            return (
-              <div
-                key={a.questionId}
-                className='bg-teal-500/5 border border-teal-500/10 rounded-xl p-3'
-              >
-                <div className='flex items-center gap-2 mb-1'>
-                  <span className='px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-400 text-[10px] font-bold uppercase tracking-wider'>
-                    LOE Question
-                  </span>
-                  <p className='text-gray-400 text-xs'>{a.questionText}</p>
-                </div>
-                <p className='text-teal-200 text-sm font-semibold leading-relaxed'>
-                  {a.answerText}
-                </p>
-              </div>
-            )
-          }
-
           const decision = decisions[a.questionId]
           return (
             <div

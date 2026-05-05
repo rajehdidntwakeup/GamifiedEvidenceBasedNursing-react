@@ -20,10 +20,22 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined)
 
+function normalizeStoredUser(stored: string | null): AuthResponse | null {
+  if (!stored) return null
+  try {
+    const parsed = JSON.parse(stored) as Record<string, unknown>
+    return {
+      token: String(parsed.token ?? ''),
+      isAdmin: Boolean(parsed.isAdmin ?? parsed.admin ?? false),
+    }
+  } catch {
+    return null
+  }
+}
+
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthResponse | null>(() => {
-    const stored = sessionStorage.getItem('user')
-    return stored ? JSON.parse(stored) : null
+    return normalizeStoredUser(sessionStorage.getItem('user'))
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

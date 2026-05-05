@@ -13,16 +13,14 @@ import {
   LogOut,
   Timer,
   AlertTriangle,
-  Clock,
   Plus,
-  Check,
   X,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import React from 'react'
 
-import { useAdminWebSocket, useNotification, type QuestionFeedback } from '@/entities/notification'
+import { useAdminWebSocket, useNotification, type QuestionFeedback, getNotificationId } from '@/entities/notification'
 import { adminApi, gameApi, type GameResponseDto } from '@/services/api'
 
 import {
@@ -61,19 +59,15 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
   const { state: notificationState, dispatch: notificationDispatch } = useNotification()
 
   const handleSubmitFeedback = async (
-    id: number,
+    notificationId: string,
     roomId: number,
     feedback: QuestionFeedback[],
-    loeQuestionId?: number,
-    loeAnswer?: string,
   ) => {
     await adminApi.submitFeedback({
       roomId,
       questions: feedback,
-      loeQuestionId: loeQuestionId || 0,
-      loeAnswer: loeAnswer || '',
     })
-    notificationDispatch({ type: 'REMOVE', payload: id })
+    notificationDispatch({ type: 'REMOVE', payload: notificationId })
   }
 
   // Countdown timer — ticks every second
@@ -1196,8 +1190,9 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
               ) : (
                 notificationState.notifications.map((n) => (
                   <SubmissionPanel
-                    key={n.submissionId}
+                    key={getNotificationId(n)}
                     submission={n}
+                    notificationId={getNotificationId(n)}
                     onSubmitFeedback={handleSubmitFeedback}
                   />
                 ))

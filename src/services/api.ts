@@ -16,8 +16,6 @@ export interface QuestionFeedbackDto {
 
 export interface AnalyticsSubmissionFeedbackDto {
   roomId: number
-  loeQuestionId: number
-  loeAnswer: string
   questions: QuestionFeedbackDto[]
 }
 
@@ -100,10 +98,10 @@ export interface ResultDto {
 export const roomOfKnowledgeApi = {
   /**
    * Verify if an answer is correct using path-based endpoint
-   * Path: /api/rooms/roomofknowledge/question/{questionId}/answer/{answerId}
+   * Path: /api/rooms/roomofknowledge/{roomId}/question/{questionId}/answer/{answerId}
    */
-  verifyAnswer: (questionId: number, answerId: number) =>
-    fetchApi<boolean>(`/api/rooms/roomofknowledge/question/${questionId}/answer/${answerId}`),
+  verifyAnswer: (roomId: number, questionId: number, answerId: number) =>
+    fetchApi<boolean>(`/api/rooms/roomofknowledge/${roomId}/question/${questionId}/answer/${answerId}`),
 
   /**
    * Get result for Room of Knowledge
@@ -149,16 +147,33 @@ export interface SubmissionDto {
   openQuestions: OpenQuestionSubmissionDto[]
 }
 
+export interface SubmissionResponseDto {
+  progress: number
+  levelOfEvidenceApproved: boolean
+}
+
 export const roomOfAnalyticsApi = {
   /**
    * Submit answers for Room of Analytics
    * Path: /api/rooms/roomofanalytics/submit
    */
   submit: (request: SubmissionDto) =>
-    fetchApi<boolean>('/api/rooms/roomofanalytics/submit', {
+    fetchApi<SubmissionResponseDto>('/api/rooms/roomofanalytics/submit', {
       method: 'POST',
       body: JSON.stringify(request),
     }),
+
+  /**
+   * Get results for Room of Analytics
+   * Path: /api/rooms/roomofanalytics/results
+   */
+  getResults: (roomId: number, missionId: number) => {
+    const query = new URLSearchParams({
+      roomId: String(roomId),
+      missionId: String(missionId),
+    }).toString()
+    return fetchApi<ResultDto>(`/api/rooms/roomofanalytics/results?${query}`)
+  },
 }
 
 // ============== PROCEED TO NEXT ROOM API ==============
@@ -178,7 +193,7 @@ export interface RoomOfAbstractsResponseDto {
 export interface TableQuestionDto {
   questionId: number
   question: string
-  answers: string[]
+  answers: AnswerDto[]
 }
 
 export interface RoomResponseDto {
@@ -212,6 +227,16 @@ export const proceedApi = {
    */
   toAnalyticsRoom: (request: ProceedDto) =>
     fetchApi<RoomResponseDto>('/api/game/proceed/analytics', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
+
+  /**
+   * Proceed to the Room of Science Battle
+   * Path: /api/game/proceed/scienebattle
+   */
+  toScienceBattleRoom: (request: ProceedDto) =>
+    fetchApi<RoomResponseDto>('/api/game/proceed/scienebattle', {
       method: 'POST',
       body: JSON.stringify(request),
     }),

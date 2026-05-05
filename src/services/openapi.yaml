@@ -766,12 +766,50 @@ paths:
                   answer: "Elevated blood pressure"
       responses:
         '200':
-          description: Analytics submitted successfully, true if the levelEvidenceAnswer is correct
+          description: Analytics submitted successfully, includes current progress and if level of evidence answer was correct
           content:
             application/json:
               schema:
-                type: boolean
-              example: true
+                $ref: '#/components/schemas/SubmissionResponseDto'
+              example:
+                progress: 20
+                levelOfEvidenceApproved: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/rooms/roomofanalytics/results:
+    get:
+      tags:
+        - Room of Analytics
+      summary: Get results for Room of Analytics
+      description: |
+        Returns the current progress and the room key if all questions are correctly answered.
+      operationId: getAnalyticsResults
+      parameters:
+        - name: roomId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 3
+        - name: missionId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 1
+      responses:
+        '200':
+          description: Results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultDto'
+              example:
+                progress: 100
+                key: "K-Y"
         '400':
           $ref: '#/components/responses/BadRequest'
 
@@ -1072,6 +1110,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OpenQuestionSubmissionDto'
+
+    SubmissionResponseDto:
+      type: object
+      description: Response after submitting analytics answers
+      properties:
+        progress:
+          type: integer
+          description: Current progress of the room
+          example: 20
+        levelOfEvidenceApproved:
+          type: boolean
+          description: Whether the Level of Evidence answer was correct
+          example: true
 
     AnalyticsSubmissionFeedbackDto:
       type: object

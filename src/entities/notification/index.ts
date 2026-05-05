@@ -6,6 +6,7 @@ export type {
   QuestionFeedback,
   QuestionFeedbackResultDto,
 } from './model/types'
+export { getNotificationId } from './model/types'
 export {
   connectWebSocket,
   disconnectWebSocket,

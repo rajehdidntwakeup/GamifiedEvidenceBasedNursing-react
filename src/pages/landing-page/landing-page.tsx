@@ -238,7 +238,7 @@ function Navigation({
               <span className='text-xs text-teal-400 bg-teal-500/20 px-2 py-0.5 rounded'>
                 {typeof user === 'object' && 'role' in user
                   ? (user as { role: string }).role
-                  : (user as { admin: boolean })?.admin
+                  : (user as { isAdmin: boolean })?.isAdmin
                     ? 'Admin'
                     : 'User'}
               </span>

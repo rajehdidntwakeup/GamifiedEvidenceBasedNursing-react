@@ -11,14 +11,21 @@ export function useAdminWebSocket() {
   const { dispatch } = useNotification()
 
   useEffect(() => {
-    if (!user?.token || !user.admin) return
+    console.log('[AdminWebSocket] hook running - token:', !!user?.token, 'isAdmin:', user?.isAdmin)
+    if (!user?.token || !user.isAdmin) {
+      console.log('[AdminWebSocket] skipping connection (missing token or not admin)')
+      return
+    }
 
+    console.log('[AdminWebSocket] starting connection...')
     connectWebSocket(user.token, (msg) => {
+      console.log('[AdminWebSocket] dispatching ADD with:', msg)
       dispatch({ type: 'ADD', payload: msg })
     })
 
     return () => {
+      console.log('[AdminWebSocket] cleanup disconnect')
       disconnectWebSocket()
     }
-  }, [user?.token, user?.admin, dispatch])
+  }, [user?.token, user?.isAdmin, dispatch])
 }

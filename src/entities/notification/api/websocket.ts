@@ -8,29 +8,44 @@ const WS_URL = WS_BASE.replace(/^http/, 'ws') + '/websocket'
 
 let stompClient: Client | null = null
 let subscription: StompSubscription | null = null
+let adminMessageHandler: ((msg: AdminNotification) => void) | null = null
 
 export function connectWebSocket(token: string, onMessage: (msg: AdminNotification) => void) {
-  if (stompClient?.active) return
+  adminMessageHandler = onMessage
 
+  if (stompClient?.active) {
+    console.log('[AdminWebSocket] already active, updated handler only')
+    return
+  }
+
+  console.log('[AdminWebSocket] connecting to', WS_URL)
   stompClient = new Client({
     brokerURL: WS_URL,
     connectHeaders: {
       Authorization: `Bearer ${token}`,
     },
     debug: (str) => {
-      if (import.meta.env.DEV) console.log(str)
+      if (import.meta.env.DEV) console.log('[AdminWebSocket]', str)
     },
     reconnectDelay: 5000,
     heartbeatIncoming: 4000,
     heartbeatOutgoing: 4000,
     onConnect: () => {
+      console.log('[AdminWebSocket] connected, subscribing to /topic/analytics/submissions')
       subscription = stompClient!.subscribe('/topic/analytics/submissions', (message: IMessage) => {
         const body = JSON.parse(message.body)
-        onMessage(body)
+        console.log('[AdminWebSocket] raw message:', body)
+        adminMessageHandler?.(body)
       })
     },
     onStompError: (frame) => {
-      console.error('Broker error: ' + frame.headers['message'])
+      console.error('[AdminWebSocket] STOMP error:', frame.headers['message'])
+    },
+    onWebSocketError: (event) => {
+      console.error('[AdminWebSocket] WebSocket error:', event)
+    },
+    onDisconnect: () => {
+      console.log('[AdminWebSocket] disconnected')
     },
   })
 
@@ -38,10 +53,12 @@ export function connectWebSocket(token: string, onMessage: (msg: AdminNotificati
 }
 
 export function disconnectWebSocket() {
+  console.log('[AdminWebSocket] disconnecting...')
   subscription?.unsubscribe()
   stompClient?.deactivate()
   subscription = null
   stompClient = null
+  adminMessageHandler = null
 }
 
 // Player-side: listen for admin feedback on a specific mission

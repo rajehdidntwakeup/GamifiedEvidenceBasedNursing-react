@@ -2,7 +2,6 @@ export interface AnswerDetail {
   questionId: number
   questionText: string
   answerText: string
-  isLoe?: boolean
 }
 
 export interface QuestionFeedback {
@@ -18,15 +17,12 @@ export interface QuestionFeedbackResultDto {
 }
 
 export interface AdminNotification {
-  submissionId: number
   missionId: number
   missionName: string
   roomId: number
   roomName: string
   submittedAt: string // ISO-8601
   answers: AnswerDetail[]
-  loeQuestionId?: number
-  loeAnswer?: string
 }
 
 export interface AnalyticsFeedbackDto {
@@ -35,4 +31,8 @@ export interface AnalyticsFeedbackDto {
   progress: number
   feedbackAt: string
   questions: QuestionFeedbackResultDto[]
+}
+
+export function getNotificationId(n: AdminNotification): string {
+  return `${n.missionId}-${n.roomId}-${n.submittedAt}`
 }

@@ -12,7 +12,6 @@ import {
   BarChart3,
   CheckCircle2,
   XCircle,
-  Lightbulb,
   ClipboardList,
   PenLine,
   ShieldCheck,
@@ -117,6 +116,10 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
     overallTotal: number
   } | null>(null)
 
+  const [backendKey, setBackendKey] = useState<string | null>(null)
+
+  const [previousKeys, setPreviousKeys] = useState<string[]>([])
+
   const [roomData] = useState<StoredRoomOfAnalyticsData | null>(() => loadStoredData())
 
   const studies = STUDIES_BY_MISSION[mission.id] || STUDIES_BY_MISSION[1]
@@ -126,6 +129,36 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
 
     console.log("RA-Mission: ", mission);
   const missionName = `${mission.title}`
+
+  const roomId = roomData?.roomId ?? (Number(sessionStorage.getItem('activeRoomId')) || 3)
+  const missionId = roomData?.missionId ?? mission.id
+
+  // Ask backend for ground-truth progress + key
+  const checkResults = () => {
+    console.log('[AnalyticsResults] checking results for roomId:', roomId, 'missionId:', missionId)
+    roomOfAnalyticsApi
+      .getResults(roomId, missionId)
+      .then((result) => {
+        console.log('[AnalyticsResults] result:', result)
+        if (result.progress === 100 && result.key) {
+          setBackendKey(result.key)
+          sessionStorage.setItem('roomOfAnalyticsKey', result.key)
+          setResults({
+            methodologyOk: true,
+            resultsOk: true,
+            loeCorrect: true,
+            strengthsOk: true,
+            weaknessOk: true,
+            overallScore: 5,
+            overallTotal: 5,
+          })
+          setIsWaitingForFeedback(false)
+          setIsComplete(true)
+          disconnectPlayerFeedbackWs()
+        }
+      })
+      .catch((err) => console.error('[AnalyticsResults] error:', err))
+  }
 
   // Handle admin feedback arriving via WebSocket
   const handleFeedbackReceived = (feedback: AnalyticsFeedbackDto) => {
@@ -139,59 +172,43 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
         ?.questionId
     }
 
-    const methodologyOk = questionMap.get(findQId(['methodology']) ?? -1) ?? false
-    const resultsOk = questionMap.get(findQId(['result']) ?? -1) ?? false
-    const loeCorrect = questionMap.get(findQId(['level of evidence']) ?? -1) ?? false
-    const strengthsOk = questionMap.get(findQId(['strength']) ?? -1) ?? false
-    const weaknessOk = questionMap.get(findQId(['weakness']) ?? -1) ?? false
+    const methodologyQId = findQId(['methodology'])
+    const resultsQId = findQId(['result'])
+    const loeQId = findQId(['level of evidence'])
+    const strengthsQId = findQId(['strength'])
+    const weaknessQId = findQId(['weakness'])
 
-    const overallTotal = 5
-    let overallScore = 0
-    if (methodologyOk) overallScore++
-    if (resultsOk) overallScore++
-    if (loeCorrect) overallScore++
-    if (strengthsOk) overallScore++
-    if (weaknessOk) overallScore++
+    const methodologyOk = methodologyQId !== undefined ? (questionMap.get(methodologyQId) ?? false) : null
+    const resultsOk = resultsQId !== undefined ? (questionMap.get(resultsQId) ?? false) : null
+    const loeCorrect = loeQId !== undefined ? (questionMap.get(loeQId) ?? false) : null
+    const strengthsOk = strengthsQId !== undefined ? (questionMap.get(strengthsQId) ?? false) : null
+    const weaknessOk = weaknessQId !== undefined ? (questionMap.get(weaknessQId) ?? false) : null
 
-    // All approved → show results screen
-    if (overallScore === overallTotal) {
-      setResults({
-        methodologyOk,
-        resultsOk,
-        loeCorrect,
-        strengthsOk,
-        weaknessOk,
-        overallScore,
-        overallTotal,
-      })
-      setIsWaitingForFeedback(false)
-      setIsComplete(true)
-      disconnectPlayerFeedbackWs()
-      return
-    }
-
-    // Partial approval → stay in room, lock approved, clear rejected
-    setLockedFields({
-      methodology: methodologyOk,
-      results: resultsOk,
-      loe: loeCorrect,
-      strengths: strengthsOk,
-      weakness: weaknessOk,
-    })
-    setRetryFeedback({
-      methodologyOk,
-      resultsOk,
-      loeCorrect,
-      strengthsOk,
-      weaknessOk,
-    })
-    if (!methodologyOk) setMethodologyText('')
-    if (!resultsOk) setResultsText('')
-    if (!loeCorrect) setSelectedLoe('')
-    if (!strengthsOk) setStrengthsText('')
-    if (!weaknessOk) setWeaknessText('')
+    // Apply partial approval UX — only change fields actually present in feedback
+    setLockedFields((prev) => ({
+      methodology: methodologyOk !== null ? methodologyOk : prev.methodology,
+      results: resultsOk !== null ? resultsOk : prev.results,
+      loe: loeCorrect !== null ? loeCorrect : prev.loe,
+      strengths: strengthsOk !== null ? strengthsOk : prev.strengths,
+      weakness: weaknessOk !== null ? weaknessOk : prev.weakness,
+    }))
+    setRetryFeedback((prev) => ({
+      methodologyOk: methodologyOk !== null ? methodologyOk : prev?.methodologyOk ?? false,
+      resultsOk: resultsOk !== null ? resultsOk : prev?.resultsOk ?? false,
+      loeCorrect: loeCorrect !== null ? loeCorrect : prev?.loeCorrect ?? false,
+      strengthsOk: strengthsOk !== null ? strengthsOk : prev?.strengthsOk ?? false,
+      weaknessOk: weaknessOk !== null ? weaknessOk : prev?.weaknessOk ?? false,
+    }))
+    if (methodologyOk === false) setMethodologyText('')
+    if (resultsOk === false) setResultsText('')
+    if (loeCorrect === false) setSelectedLoe('')
+    if (strengthsOk === false) setStrengthsText('')
+    if (weaknessOk === false) setWeaknessText('')
     setIsWaitingForFeedback(false)
     disconnectPlayerFeedbackWs()
+
+    // Ask backend for ground truth — may override to result screen if progress reached 100
+    checkResults()
   }
 
   // Sync waiting state to sessionStorage
@@ -209,6 +226,16 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
     connectPlayerFeedbackWs(user?.token, missionName, handleFeedbackReceived)
     return () => disconnectPlayerFeedbackWs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Load previously collected keys from earlier rooms
+  useEffect(() => {
+    const keys: string[] = []
+    const k1 = sessionStorage.getItem('roomOfKnowledgeKey')
+    if (k1) keys.push(k1)
+    const k2 = sessionStorage.getItem('roomOfAbstractsKey')
+    if (k2) keys.push(k2)
+    setPreviousKeys(keys)
   }, [])
 
   // Timer
@@ -273,8 +300,6 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
       { questionId: findQId(['weakness']), answer: weaknessText },
     ].filter((q) => q.questionId !== 0 && q.answer.trim() !== '')
 
-    const roomId = roomData?.roomId ?? (Number(sessionStorage.getItem('activeRoomId')) || 3)
-
     const loeQuestion = questions.find((q) =>
       q.question.toLowerCase().includes('level of evidence'),
     )
@@ -284,6 +309,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
 
     const openQuestionsWithoutLoe = openQuestions.filter((q) => q.questionId !== loeQuestionId)
 
+    console.log('[AnalyticsSubmit] submitting:', { roomId, openQuestions: openQuestionsWithoutLoe, levelofEvidenceQuestionId: loeQuestionId, levelofEvidencAnswer: loeAnswer })
     if (openQuestionsWithoutLoe.length > 0 || loeAnswer) {
       roomOfAnalyticsApi
         .submit({
@@ -292,44 +318,50 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
           levelofEvidenceQuestionId: loeQuestionId,
           levelofEvidencAnswer: loeAnswer,
         })
-        .then((loeCorrect) => {
-          console.log('Analytics submitted successfully, LoE correct:', loeCorrect)
+        .then((response) => {
+          console.log('[AnalyticsSubmit] response:', response)
+          setProgress(response.progress)
+
+          // Always ask backend for ground truth first — may immediately show result screen with key
+          checkResults()
+
           const allOpenApproved =
             lockedFields.methodology &&
             lockedFields.results &&
             lockedFields.strengths &&
             lockedFields.weakness
-          if (allOpenApproved) {
-            if (!loeCorrect) {
-              // All open questions already approved; only LoE wrong — skip waiting
-              setRetryFeedback({
-                methodologyOk: true,
-                resultsOk: true,
-                loeCorrect: false,
-                strengthsOk: true,
-                weaknessOk: true,
-              })
-              setIsWaitingForFeedback(false)
-              return
-            }
-            // All questions correct — show result screen immediately
-            setResults({
-              methodologyOk: true,
-              resultsOk: true,
-              loeCorrect: true,
-              strengthsOk: true,
-              weaknessOk: true,
-              overallScore: 5,
-              overallTotal: 5,
-            })
+
+          // Build retry feedback from current locked state + backend LoE result
+          const nextRetry = {
+            methodologyOk: lockedFields.methodology,
+            resultsOk: lockedFields.results,
+            loeCorrect: response.levelOfEvidenceApproved,
+            strengthsOk: lockedFields.strengths,
+            weaknessOk: lockedFields.weakness,
+          }
+
+          // Lock LoE if backend already approved it
+          if (response.levelOfEvidenceApproved) {
+            setLockedFields((prev) => ({ ...prev, loe: true }))
+          }
+
+          if (allOpenApproved && !response.levelOfEvidenceApproved) {
+            // All open questions already approved; only LoE wrong — skip waiting
+            setRetryFeedback(nextRetry)
             setIsWaitingForFeedback(false)
-            setIsComplete(true)
             return
           }
-          // Connect to player feedback WebSocket to wait for admin response
-          connectPlayerFeedbackWs(user?.token, missionName, handleFeedbackReceived)
+          if (!allOpenApproved) {
+            // Some open questions still pending — show which are already approved
+            setRetryFeedback(nextRetry)
+            // Connect to player feedback WebSocket to wait for admin response
+            console.log('[AnalyticsSubmit] connecting player feedback WS for mission:', missionName)
+            connectPlayerFeedbackWs(user?.token, missionName, handleFeedbackReceived)
+          }
         })
-        .catch((err) => console.error('Failed to submit analytics:', err))
+        .catch((err) => console.error('[AnalyticsSubmit] error:', err))
+    } else {
+      console.log('[AnalyticsSubmit] skipped - no content to submit')
     }
   }
 
@@ -571,39 +603,6 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                 </div>
               </div>
 
-              {/* Key analysis points (learning feedback) */}
-              <div className='bg-teal-500/5 border border-teal-500/20 rounded-xl p-5 mb-8 text-left'>
-                <div className='flex items-center gap-2 mb-3'>
-                  <Lightbulb className='w-5 h-5 text-teal-400' />
-                  <span className='text-teal-400 font-[JetBrains_Mono,monospace] text-sm'>
-                    KEY ANALYSIS POINTS
-                  </span>
-                </div>
-                <ul className='space-y-2'>
-                  {study.correctAnswers.keyAnalysisPoints.map((point, i) => (
-                    <li key={i} className='text-gray-400 text-sm flex gap-2'>
-                      <span className='text-teal-500 shrink-0'>&#8250;</span>
-                      {point}
-                    </li>
-                  ))}
-                </ul>
-
-                {/* Known weaknesses */}
-                <div className='mt-4 pt-4 border-t border-teal-500/10'>
-                  <span className='text-teal-400 font-[JetBrains_Mono,monospace] text-xs mb-2 block'>
-                    STUDY WEAKNESSES TO IDENTIFY
-                  </span>
-                  <ul className='space-y-1'>
-                    {study.correctAnswers.weaknesses.map((w, i) => (
-                      <li key={i} className='text-gray-500 text-xs flex gap-2'>
-                        <span className='text-orange-400 shrink-0'>•</span>
-                        {w}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
               {/* Clue Letters */}
               {passed && (
                 <motion.div
@@ -630,38 +629,52 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
                       Two more letters revealed! Your collection grows.
                     </p>
                     <div className='flex items-center justify-center gap-3 flex-wrap'>
-                      {['E', 'C', 'F', 'O'].map((letter) => (
-                        <div
-                          key={`prev-${letter}`}
-                          className='w-11 h-14 bg-[#0a1f22]/60 border border-white/10 rounded-lg flex items-center justify-center opacity-40'
-                        >
-                          <span className='text-gray-500 text-lg font-[JetBrains_Mono,monospace]'>
-                            {letter}
+                      {/* Previously collected keys — dimmed */}
+                      {previousKeys.flatMap((k) =>
+                        k.split('-').map((letter) => (
+                          <div
+                            key={`prev-${letter}-${k}`}
+                            className='w-12 h-15 bg-[#0a1f22]/60 border border-white/10 rounded-lg flex items-center justify-center opacity-40'
+                          >
+                            <span className='text-gray-500 text-xl font-[JetBrains_Mono,monospace]'>
+                              {letter.toUpperCase()}
+                            </span>
+                          </div>
+                        )),
+                      )}
+                      {previousKeys.length > 0 && backendKey && (
+                        <div className='w-px h-12 bg-teal-500/30 mx-1' />
+                      )}
+                      {/* Current room key — animated */}
+                      {backendKey
+                        ? backendKey.split('-').map((letter, i) => (
+                            <motion.div
+                              key={`key-${letter}-${i}`}
+                              initial={{ opacity: 0, scale: 0, rotateY: 180 }}
+                              animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+                              transition={{
+                                duration: 0.6,
+                                delay: 1.2 + i * 0.3,
+                                type: 'spring',
+                                stiffness: 200,
+                              }}
+                              className='w-16 h-20 bg-[#0a1f22] border-2 border-teal-500/60 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(20,184,166,0.2)]'
+                            >
+                              <span className='text-teal-400 text-3xl font-[JetBrains_Mono,monospace]'>
+                                {letter.toUpperCase()}
+                              </span>
+                            </motion.div>
+                          ))
+                        : (
+                          <span className='text-gray-500 text-sm font-[JetBrains_Mono,monospace]'>
+                            KEY FRAGMENT PENDING
                           </span>
-                        </div>
-                      ))}
-                      <div className='w-px h-12 bg-teal-500/30 mx-1' />
-                      {['L', 'R'].map((letter, i) => (
-                        <motion.div
-                          key={letter}
-                          initial={{ opacity: 0, scale: 0, rotateY: 180 }}
-                          animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-                          transition={{
-                            duration: 0.6,
-                            delay: 1.6 + i * 0.3,
-                            type: 'spring',
-                            stiffness: 200,
-                          }}
-                          className='w-16 h-20 bg-[#0a1f22] border-2 border-teal-500/60 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(20,184,166,0.2)]'
-                        >
-                          <span className='text-teal-400 text-3xl font-[JetBrains_Mono,monospace]'>
-                            {letter}
-                          </span>
-                        </motion.div>
-                      ))}
+                        )}
                     </div>
                     <p className='text-gray-600 text-xs mt-4 font-[JetBrains_Mono,monospace]'>
-                      FRAGMENT 3 OF 4 // COLLECTED: E, C, F, O, L, R
+                      {backendKey
+                        ? `FRAGMENT 3 OF ? // COLLECTED: ${previousKeys.map((k) => k.replace('-', ', ')).join(', ')}${previousKeys.length > 0 ? ', ' : ''}${backendKey.replace('-', ', ')}`
+                        : 'ROOM KEY NOT YET AVAILABLE'}
                     </p>
                   </div>
                 </motion.div>
