@@ -38,8 +38,6 @@ export const LOE_OPTIONS = [
   { value: 'Level VII', label: 'Level VII — Expert Opinion' },
 ]
 
-// Methodology minimum word count
-export const METHODOLOGY_MIN_WORDS = 30
 
 export const STUDIES_BY_MISSION: Record<number, Study[]> = {
   1: [

@@ -74,21 +74,31 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
   const [viewingStudy, setViewingStudy] = useState<number | null>(null)
 
   // Methodology text
-  const [methodologyText, setMethodologyText] = useState('')
+  const [methodologyText, setMethodologyText] = useState(
+    () => sessionStorage.getItem('analyticsMethodologyText') || '',
+  )
 
   // Results text
-  const [resultsText, setResultsText] = useState('')
+  const [resultsText, setResultsText] = useState(
+    () => sessionStorage.getItem('analyticsResultsText') || '',
+  )
 
   // LoE selection
-  const [selectedLoe, setSelectedLoe] = useState('')
+  const [selectedLoe, setSelectedLoe] = useState(
+    () => sessionStorage.getItem('analyticsSelectedLoe') || '',
+  )
   const [isWaitingForFeedback, setIsWaitingForFeedback] = useState(
     () => sessionStorage.getItem('analyticsWaitingForFeedback') === 'true',
   )
   const [progress, setProgress] = useState(0)
 
   // Strengths & Weaknesses
-  const [strengthsText, setStrengthsText] = useState('')
-  const [weaknessText, setWeaknessText] = useState('')
+  const [strengthsText, setStrengthsText] = useState(
+    () => sessionStorage.getItem('analyticsStrengthsText') || '',
+  )
+  const [weaknessText, setWeaknessText] = useState(
+    () => sessionStorage.getItem('analyticsWeaknessText') || '',
+  )
 
   const [lockedFields, setLockedFields] = useState<{
     methodology: boolean
@@ -169,9 +179,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
           setIsWaitingForFeedback(false)
           setIsComplete(true)
           disconnectPlayerFeedbackWs()
-          sessionStorage.removeItem('analyticsLockedFields')
-          sessionStorage.removeItem('analyticsRetryFeedback')
-          sessionStorage.removeItem('analyticsWaitingForFeedback')
+          // Do not clear sessionStorage here, wait for manual retry or actual final completion
         }
       })
       .catch((err) => console.error('[AnalyticsResults] error:', err))
@@ -202,25 +210,33 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
     const weaknessOk = weaknessQId !== undefined ? (questionMap.get(weaknessQId) ?? false) : null
 
     // Apply partial approval UX — only change fields actually present in feedback
-    setLockedFields((prev) => ({
-      methodology: methodologyOk !== null ? methodologyOk : prev.methodology,
-      results: resultsOk !== null ? resultsOk : prev.results,
-      loe: loeCorrect !== null ? loeCorrect : prev.loe,
-      strengths: strengthsOk !== null ? strengthsOk : prev.strengths,
-      weakness: weaknessOk !== null ? weaknessOk : prev.weakness,
-    }))
-    setRetryFeedback((prev) => ({
-      methodologyOk: methodologyOk !== null ? methodologyOk : prev?.methodologyOk ?? false,
-      resultsOk: resultsOk !== null ? resultsOk : prev?.resultsOk ?? false,
-      loeCorrect: loeCorrect !== null ? loeCorrect : prev?.loeCorrect ?? false,
-      strengthsOk: strengthsOk !== null ? strengthsOk : prev?.strengthsOk ?? false,
-      weaknessOk: weaknessOk !== null ? weaknessOk : prev?.weaknessOk ?? false,
-    }))
-    if (methodologyOk === false) setMethodologyText('')
-    if (resultsOk === false) setResultsText('')
-    if (loeCorrect === false) setSelectedLoe('')
-    if (strengthsOk === false) setStrengthsText('')
-    if (weaknessOk === false) setWeaknessText('')
+    setLockedFields((prev) => {
+      const next = {
+        methodology: (methodologyOk !== null ? methodologyOk : prev.methodology) || prev.methodology,
+        results: (resultsOk !== null ? resultsOk : prev.results) || prev.results,
+        loe: (loeCorrect !== null ? loeCorrect : prev.loe) || prev.loe,
+        strengths: (strengthsOk !== null ? strengthsOk : prev.strengths) || prev.strengths,
+        weakness: (weaknessOk !== null ? weaknessOk : prev.weakness) || prev.weakness,
+      }
+      sessionStorage.setItem('analyticsLockedFields', JSON.stringify(next))
+      return next
+    })
+    setRetryFeedback((prev) => {
+      const next = {
+        methodologyOk: (methodologyOk !== null ? methodologyOk : prev?.methodologyOk) || prev?.methodologyOk || false,
+        resultsOk: (resultsOk !== null ? resultsOk : prev?.resultsOk) || prev?.resultsOk || false,
+        loeCorrect: (loeCorrect !== null ? loeCorrect : prev?.loeCorrect) || prev?.loeCorrect || false,
+        strengthsOk: (strengthsOk !== null ? strengthsOk : prev?.strengthsOk) || prev?.strengthsOk || false,
+        weaknessOk: (weaknessOk !== null ? weaknessOk : prev?.weaknessOk) || prev?.weaknessOk || false,
+      }
+      sessionStorage.setItem('analyticsRetryFeedback', JSON.stringify(next))
+      return next
+    })
+    if (methodologyOk === false && !lockedFields.methodology) setMethodologyText('')
+    if (resultsOk === false && !lockedFields.results) setResultsText('')
+    if (loeCorrect === false && !lockedFields.loe) setSelectedLoe('')
+    if (strengthsOk === false && !lockedFields.strengths) setStrengthsText('')
+    if (weaknessOk === false && !lockedFields.weakness) setWeaknessText('')
     setIsWaitingForFeedback(false)
     disconnectPlayerFeedbackWs()
 
@@ -250,6 +266,27 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
       sessionStorage.removeItem('analyticsRetryFeedback')
     }
   }, [retryFeedback])
+
+  // Persist input texts to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('analyticsMethodologyText', methodologyText)
+  }, [methodologyText])
+
+  useEffect(() => {
+    sessionStorage.setItem('analyticsResultsText', resultsText)
+  }, [resultsText])
+
+  useEffect(() => {
+    sessionStorage.setItem('analyticsSelectedLoe', selectedLoe)
+  }, [selectedLoe])
+
+  useEffect(() => {
+    sessionStorage.setItem('analyticsStrengthsText', strengthsText)
+  }, [strengthsText])
+
+  useEffect(() => {
+    sessionStorage.setItem('analyticsWeaknessText', weaknessText)
+  }, [weaknessText])
 
   // On mount: if already waiting (e.g. page refresh), reconnect WebSocket
   useEffect(() => {
@@ -373,18 +410,24 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
 
           // Lock LoE if backend already approved it
           if (response.levelOfEvidenceApproved) {
-            setLockedFields((prev) => ({ ...prev, loe: true }))
+            setLockedFields((prev) => {
+              const next = { ...prev, loe: true }
+              sessionStorage.setItem('analyticsLockedFields', JSON.stringify(next))
+              return next
+            })
           }
 
           if (allOpenApproved && !response.levelOfEvidenceApproved) {
             // All open questions already approved; only LoE wrong — skip waiting
             setRetryFeedback(nextRetry)
+            sessionStorage.setItem('analyticsRetryFeedback', JSON.stringify(nextRetry))
             setIsWaitingForFeedback(false)
             return
           }
           if (!allOpenApproved) {
             // Some open questions still pending — show which are already approved
             setRetryFeedback(nextRetry)
+            sessionStorage.setItem('analyticsRetryFeedback', JSON.stringify(nextRetry))
             // Connect to player feedback WebSocket to wait for admin response
             console.log('[AnalyticsSubmit] connecting player feedback WS for mission:', missionName)
             connectPlayerFeedbackWs(user?.token, missionName, handleFeedbackReceived)
@@ -416,7 +459,13 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
     sessionStorage.removeItem('analyticsLockedFields')
     sessionStorage.removeItem('analyticsRetryFeedback')
     sessionStorage.removeItem('analyticsWaitingForFeedback')
+    sessionStorage.removeItem('analyticsMethodologyText')
+    sessionStorage.removeItem('analyticsResultsText')
+    sessionStorage.removeItem('analyticsSelectedLoe')
+    sessionStorage.removeItem('analyticsStrengthsText')
+    sessionStorage.removeItem('analyticsWeaknessText')
     sessionStorage.removeItem('roomOfAnalyticsKey')
+    sessionStorage.removeItem('roomOfAnalyticsData') // Clear room data as well on full retry
     setMethodologyText('')
     setResultsText('')
     setSelectedLoe('')
