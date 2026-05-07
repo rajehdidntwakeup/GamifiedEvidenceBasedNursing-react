@@ -142,8 +142,8 @@ export interface OpenQuestionSubmissionDto {
 
 export interface SubmissionDto {
   roomId: number
-  levelofEvidenceQuestionId: number
-  levelofEvidencAnswer: string
+  levelofEvidenceQuestionId?: number
+  levelofEvidencAnswer?: string
   openQuestions: OpenQuestionSubmissionDto[]
 }
 
