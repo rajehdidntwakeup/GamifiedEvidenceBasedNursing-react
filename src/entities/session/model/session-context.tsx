@@ -20,10 +20,22 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined)
 
+function normalizeStoredUser(stored: string | null): AuthResponse | null {
+  if (!stored) return null
+  try {
+    const parsed = JSON.parse(stored) as Record<string, unknown>
+    return {
+      token: String(parsed.token ?? ''),
+      isAdmin: Boolean(parsed.isAdmin ?? parsed.admin ?? false),
+    }
+  } catch {
+    return null
+  }
+}
+
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthResponse | null>(() => {
-    const stored = localStorage.getItem('user')
-    return stored ? JSON.parse(stored) : null
+    return normalizeStoredUser(sessionStorage.getItem('user'))
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,8 +46,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await authApi.login({ username, password })
       setUser(response)
-      localStorage.setItem('token', response.token)
-      localStorage.setItem('user', JSON.stringify(response))
+      sessionStorage.setItem('token', response.token)
+      sessionStorage.setItem('user', JSON.stringify(response))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
       throw err
@@ -50,8 +62,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await authApi.register({ username, password })
       setUser(response)
-      localStorage.setItem('token', response.token)
-      localStorage.setItem('user', JSON.stringify(response))
+      sessionStorage.setItem('token', response.token)
+      sessionStorage.setItem('user', JSON.stringify(response))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
       throw err
@@ -62,8 +74,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     setUser(null)
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('user')
   }, [])
 
   const clearError = useCallback(() => {

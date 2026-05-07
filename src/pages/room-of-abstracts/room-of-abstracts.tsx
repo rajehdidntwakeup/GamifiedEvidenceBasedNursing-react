@@ -191,6 +191,8 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
   const [resultProgress, setResultProgress] = useState<number | null>(null)
   const [resultKey, setResultKey] = useState<string | null>(null)
   const [previousKey, setPreviousKey] = useState<string | null>(null)
+  const [isProceeding, setIsProceeding] = useState(false)
+  const [proceedError, setProceedError] = useState<string | null>(null)
 
   // Load from sessionStorage on mount
   useEffect(() => {
@@ -338,6 +340,36 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
     setTimeExpired(false)
     setIsComplete(false)
     setSubmitError(null)
+  }
+
+  const handleProceed = async () => {
+    if (!onProceedToRoom3 || isProceeding) return
+
+    setIsProceeding(true)
+    setProceedError(null)
+
+    try {
+      const storedRoomId = sessionStorage.getItem('activeRoomId')
+      const roomId = storedRoomId ? Number(storedRoomId) : 2
+
+      const response = await roomOfAbstractsApi.proceed({ roomId })
+
+      if (response.questions) {
+        sessionStorage.setItem('roomOfAnalyticsData', JSON.stringify(response))
+      }
+      sessionStorage.setItem('activeRoomId', String(response.roomId))
+
+      onProceedToRoom3()
+    } catch (error) {
+      console.error('Failed to proceed to Room 3:', error)
+      setProceedError(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Failed to proceed to the next room. Please try again.',
+      )
+    } finally {
+      setIsProceeding(false)
+    }
   }
 
   // ── No data found ─────────────────────────────────────────────────────────
@@ -521,12 +553,21 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                 </button>
               )}
               {didPass && onProceedToRoom3 && (
-                <button
-                  onClick={onProceedToRoom3}
-                  className='px-6 py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-xl transition-colors flex items-center justify-center gap-2'
-                >
-                  Proceed to Room 3 <ChevronRight className='w-4 h-4' />
-                </button>
+                <div className='flex flex-col items-center gap-2'>
+                  <button
+                    onClick={handleProceed}
+                    disabled={isProceeding}
+                    className='px-6 py-3 bg-teal-500 hover:bg-teal-400 disabled:bg-teal-800 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex items-center justify-center gap-2'
+                  >
+                    {isProceeding ? (
+                      <div className='w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin' />
+                    ) : (
+                      <ChevronRight className='w-4 h-4' />
+                    )}
+                    Proceed to Room 3
+                  </button>
+                  {proceedError && <p className='text-red-400 text-xs mt-1'>{proceedError}</p>}
+                </div>
               )}
             </div>
           </motion.div>
@@ -537,7 +578,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
 
   // ── Main room UI ───────────────────────────────────────────────────────────
   return (
-    <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]'>
+    <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto overflow-x-hidden font-[Inter,sans-serif]'>
       <div
         className='absolute inset-0 z-0 opacity-5'
         style={{
@@ -547,7 +588,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
         }}
       />
 
-      <div className='relative z-10 flex flex-col h-full'>
+      <div className='relative z-10 flex flex-col h-full overflow-x-hidden'>
         {/* Top bar */}
         <div className='px-6 md:px-12 py-4 border-b border-white/10'>
           <div className='flex items-center justify-between max-w-5xl mx-auto'>
@@ -589,7 +630,7 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
             className={`h-full ${
               isTimerCritical ? 'bg-red-500' : isTimerWarning ? 'bg-orange-500' : 'bg-teal-500'
             }`}
-            style={{ width: `${timerPercent}%` }}
+            animate={{ width: `${timerPercent}%` }}
             transition={{ duration: 0.5 }}
           />
         </div>
@@ -625,39 +666,45 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
                   </span>
                 </div>
                 <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                  {data.docs.map((doc, i) => {
-                    if (!doc || typeof doc !== 'string') return null
-                    const src = getAbstractImage(doc)
-                    if (!src) return null
-                    return (
-                      <div
-                        key={i}
-                        className='bg-white rounded-xl overflow-hidden border border-white/10 cursor-pointer group hover:border-teal-500/50 transition-all'
-                        onClick={() => setExpandedImage(src)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            setExpandedImage(src)
-                          }
-                        }}
-                        role='button'
-                        tabIndex={0}
-                        aria-label={`View abstract ${i + 1}`}
-                      >
-                        <div className='bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between'>
-                          <p className='text-gray-500 text-xs font-[JetBrains_Mono,monospace]'>
-                            ABSTRACT {i + 1}
-                          </p>
-                          <ZoomIn className='w-3.5 h-3.5 text-gray-400 group-hover:text-teal-500 transition-colors' />
+                  {[...data.docs]
+                    .sort((a, b) => {
+                      const numA = parseInt((a.match(/\/(\d+)_/) || ['0', '0'])[1], 10)
+                      const numB = parseInt((b.match(/\/(\d+)_/) || ['0', '0'])[1], 10)
+                      return numA - numB
+                    })
+                    .map((doc, i) => {
+                      if (!doc || typeof doc !== 'string') return null
+                      const src = getAbstractImage(doc)
+                      if (!src) return null
+                      return (
+                        <div
+                          key={i}
+                          className='bg-white rounded-xl overflow-hidden border border-white/10 cursor-pointer group hover:border-teal-500/50 transition-all'
+                          onClick={() => setExpandedImage(src)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              setExpandedImage(src)
+                            }
+                          }}
+                          role='button'
+                          tabIndex={0}
+                          aria-label={`View abstract ${i + 1}`}
+                        >
+                          <div className='bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center justify-between'>
+                            <p className='text-gray-500 text-xs font-[JetBrains_Mono,monospace]'>
+                              ABSTRACT {i + 1}
+                            </p>
+                            <ZoomIn className='w-3.5 h-3.5 text-gray-400 group-hover:text-teal-500 transition-colors' />
+                          </div>
+                          <img
+                            src={src}
+                            alt={`Abstract ${i + 1}`}
+                            className='w-full h-auto object-contain max-h-64 group-hover:opacity-90 transition-opacity'
+                          />
                         </div>
-                        <img
-                          src={src}
-                          alt={`Abstract ${i + 1}`}
-                          className='w-full h-auto object-contain max-h-64 group-hover:opacity-90 transition-opacity'
-                        />
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
                 </div>
               </motion.div>
             )}

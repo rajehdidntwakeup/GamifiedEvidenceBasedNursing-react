@@ -9,14 +9,14 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
  * Get the auth token from localStorage
  */
 function getToken(): string | null {
-  return window.localStorage.getItem('token')
+  return window.sessionStorage.getItem('token')
 }
 
 /**
  * Clear auth token from localStorage
  */
 function clearToken(): void {
-  window.localStorage.removeItem('token')
+  window.sessionStorage.removeItem('token')
 }
 
 /**
@@ -43,7 +43,12 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     throw new Error(error || `HTTP ${response.status}`)
   }
 
-  return response.json() as Promise<T>
+  const contentType = response.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    return response.json() as Promise<T>
+  }
+
+  return response.text() as Promise<T>
 }
 
 /**
@@ -57,5 +62,5 @@ export function clearAuth(): void {
  * Store auth token in localStorage
  */
 export function setToken(token: string): void {
-  window.localStorage.setItem('token', token)
+  window.sessionStorage.setItem('token', token)
 }

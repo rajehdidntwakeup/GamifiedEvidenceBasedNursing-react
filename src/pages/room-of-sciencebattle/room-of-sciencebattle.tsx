@@ -701,7 +701,7 @@ export function RoomOfSciencebattle({
             className={`h-full ${
               isTimerCritical ? 'bg-red-500' : isTimerWarning ? 'bg-orange-500' : 'bg-teal-500'
             }`}
-            style={{ width: `${timerPercent}%` }}
+            animate={{ width: `${timerPercent}%` }}
             transition={{ duration: 0.5 }}
           />
         </div>

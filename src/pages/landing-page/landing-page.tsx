@@ -11,7 +11,7 @@ import type { AuthResponse, MissionDto } from '@/services/api'
 import { AuthModal } from './components/AuthModal'
 import { MissionGrid } from './components/MissionGrid'
 import { RoomRouter } from './components/RoomRouter'
-import { useMissionState } from './hooks/useMissionState'
+import { useMissionState, ACTIVE_GAME_ID_STORAGE_KEY } from './hooks/useMissionState'
 import { ImageWithFallback } from './ImageWithFallback'
 
 export function LandingPage() {
@@ -132,7 +132,12 @@ export function LandingPage() {
           onBeginMission={() => {
             void (async () => {
               try {
-                const data = await gameApi.getLandingMissions()
+                const [data, sessionId] = await Promise.all([
+                  gameApi.getLandingMissions(),
+                  gameApi.getGameSessionId().catch(() => null),
+                ])
+                const resolvedGameId = sessionId ?? data.gameId
+                sessionStorage.setItem(ACTIVE_GAME_ID_STORAGE_KEY, String(resolvedGameId))
                 setLandingData({ gameId: data.gameId, missions: data.missions })
                 actions.setShowMissions(true)
               } catch {
@@ -233,7 +238,7 @@ function Navigation({
               <span className='text-xs text-teal-400 bg-teal-500/20 px-2 py-0.5 rounded'>
                 {typeof user === 'object' && 'role' in user
                   ? (user as { role: string }).role
-                  : (user as { admin: boolean })?.admin
+                  : (user as { isAdmin: boolean })?.isAdmin
                     ? 'Admin'
                     : 'User'}
               </span>

@@ -27,6 +27,14 @@ info:
     - URL paths use **kebab-case** (e.g., `/api/game/create`).
     - Enum values use **UPPER_SNAKE_CASE**.
     - JSON fields use **camelCase**.
+
+    ## WebSockets
+    The application uses WebSockets (via STOMP) for real-time notifications.
+    - **Handshake Endpoint:** `/ws` (supports SockJS)
+    - **Authentication:** Must provide a valid JWT in the `Authorization` header during the STOMP `CONNECT` frame.
+    - **Topics:**
+      - `/topic/analytics/submissions`: Admins can subscribe to this topic to receive real-time notifications when a team submits their answers in the Room of Analytics.
+      - `/topic/mission/analytics/{mission-name}/feedback`: Teams can subscribe to this topic to receive real-time feedback when an admin approves or rejects their analytics answers. Replace `{mission-name}` with the team's actual mission name (e.g., "mission1").
   version: 1.0.0
   contact:
     name: GamifiedEvidenceBasedNursing Team
@@ -42,6 +50,8 @@ tags:
     description: Game session lifecycle — create, query, and manage game sessions
   - name: Admin
     description: Admin operations — check for existing admins
+  - name: Admin Dashboard
+    description: Admin dashboard operations — managing team submissions and feedback
   - name: Landing Page
     description: Landing page endpoints — check game status and show missions
   - name: Entering Mission
@@ -58,6 +68,8 @@ tags:
     description: Room of Science Battle specific endpoints
   - name: Room Time
     description: Room Time specific endpoints — calculate remaining time for a room
+  - name: WebSockets
+    description: WebSocket endpoints and real-time notifications
 
 paths:
   # ──────────────────────────────────────────────
@@ -79,8 +91,8 @@ paths:
             schema:
               $ref: '#/components/schemas/AuthRequest'
             example:
-              username: 'nurse.jane'
-              password: 'SecureP@ss123'
+              username: "nurse.jane"
+              password: "SecureP@ss123"
       responses:
         '200':
           description: Registration successful — JWT token returned
@@ -242,6 +254,45 @@ paths:
                 type: boolean
               example: true
 
+  /api/admin/submission/analytics:
+    post:
+      tags:
+        - Admin Dashboard
+      summary: Submit feedback for an analytics submission
+      description: |
+        Allows an admin to provide feedback (approve/reject) for open questions in a team's analytics submission.
+      operationId: analyticsSubmissionFeedback
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Feedback for the analytics submission
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyticsSubmissionFeedbackDto'
+            example:
+              roomId: 3
+              questions:
+                - questionId: 1
+                  answer: "Increased heart rate"
+                  approved: true
+                - questionId: 2
+                  answer: "Elevated blood pressure"
+                  approved: false
+      responses:
+        '200':
+          description: Feedback submitted successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Feedback processed successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   # ──────────────────────────────────────────────
   # Games
   # ──────────────────────────────────────────────
@@ -266,8 +317,8 @@ paths:
                 gameId: 1
                 teamPasswords:
                   - teamId: 1
-                    mission: 'Wound Care for Pressure Ulcers'
-                    password: 'abcd'
+                    mission: "Wound Care for Pressure Ulcers"
+                    password: "abcd"
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -312,9 +363,29 @@ paths:
                 gameId: 1
                 missions:
                   - missionId: 1
-                    missionName: 'Wound Care for Pressure Ulcers'
+                    missionName: "Wound Care for Pressure Ulcers"
                   - missionId: 2
-                    missionName: 'Fall Prevention in Geriatrics'
+                    missionName: "Fall Prevention in Geriatrics"
+
+  /api/game/landing/session-id:
+    get:
+      tags:
+        - Landing Page
+      summary: Get the current game session ID
+      description: |
+        Returns the ID of the currently active game session.
+      operationId: getGameSessionId
+      responses:
+        '200':
+          description: Game session ID retrieved
+          content:
+            application/json:
+              schema:
+                type: integer
+                format: int64
+              example: 1
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   # ──────────────────────────────────────────────
   # Entering Mission
@@ -335,7 +406,7 @@ paths:
             schema:
               $ref: '#/components/schemas/EnteringGameRequest'
             example:
-              password: 'GameRoom42'
+              password: "GameRoom42"
               gameId: 1
               missionId: 1
       responses:
@@ -351,12 +422,12 @@ paths:
                 timer: 300
                 questions:
                   - questionId: 1
-                    question: 'What is the primary sign of a pressure ulcer?'
+                    question: "What is the primary sign of a pressure ulcer?"
                     answers:
                       - answerId: 1
-                        answer: 'Redness'
+                        answer: "Redness"
                       - answerId: 2
-                        answer: 'Blue tint'
+                        answer: "Blue tint"
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -461,7 +532,7 @@ paths:
                 $ref: '#/components/schemas/ResultDto'
               example:
                 progress: 80
-                key: 'KEY-123'
+                key: "KEY-123"
 
   /api/rooms/howmuchtimedowehave:
     get:
@@ -585,7 +656,7 @@ paths:
                 $ref: '#/components/schemas/ResultDto'
               example:
                 progress: 100
-                key: 'SECRET-KEY'
+                key: "SECRET-KEY"
 
   # ──────────────────────────────────────────────
   # Proceed to Next Room
@@ -617,17 +688,17 @@ paths:
               example:
                 roomId: 2
                 missionId: 1
-                mainQuestion: 'Welcome to Room of Abstracts'
+                mainQuestion: "Welcome to Room of Abstracts"
                 docs:
-                  - '/images/abstracts.jpg'
+                  - "/images/abstracts.jpg"
                 questions:
                   - questionId: 1
-                    question: 'What is the main topic?'
+                    question: "What is the main topic?"
                     answers:
                       - answerId: 1
-                        answer: 'Topic A'
+                        answer: "Topic A"
                       - answerId: 2
-                        answer: 'Topic B'
+                        answer: "Topic B"
 
   /api/game/proceed/analytics:
     post:
@@ -657,17 +728,90 @@ paths:
               example:
                 roomId: 3
                 missionId: 1
-                mainQuestion: 'Welcome to Room of Analytics'
+                mainQuestion: "Welcome to Room of Analytics"
                 docs:
-                  - '/images/analytics.jpg'
+                  - "/images/analytics.jpg"
                 questions:
                   - questionId: 1
-                    question: 'What does the data show?'
+                    question: "What does the data show?"
                     answers:
                       - answerId: 1
-                        answer: 'Trend A'
+                        answer: "Trend A"
                       - answerId: 2
-                        answer: 'Trend B'
+                        answer: "Trend B"
+
+  /api/rooms/roomofanalytics/submit:
+    post:
+      tags:
+        - Room of Analytics
+      summary: Submit answers for Room of Analytics
+      description: |
+        Submits the team's selected answers for the open questions and the Level of Evidence question in the Room of Analytics.
+      operationId: submitAnalytics
+      requestBody:
+        description: Submission request for Room of Analytics
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionDto'
+            example:
+              roomId: 3
+              levelofEvidenceQuestionId: 10
+              levelofEvidencAnswer: "Level I"
+              openQuestions:
+                - questionId: 1
+                  answer: "Increased heart rate"
+                - questionId: 2
+                  answer: "Elevated blood pressure"
+      responses:
+        '200':
+          description: Analytics submitted successfully, includes current progress and if level of evidence answer was correct
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionResponseDto'
+              example:
+                progress: 20
+                levelOfEvidenceApproved: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/rooms/roomofanalytics/results:
+    get:
+      tags:
+        - Room of Analytics
+      summary: Get results for Room of Analytics
+      description: |
+        Returns the current progress and the room key if all questions are correctly answered.
+      operationId: getAnalyticsResults
+      parameters:
+        - name: roomId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 3
+        - name: missionId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 1
+      responses:
+        '200':
+          description: Results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultDto'
+              example:
+                progress: 100
+                key: "K-Y"
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
   /api/game/proceed/scienebattle:
     post:
@@ -697,17 +841,33 @@ paths:
               example:
                 roomId: 4
                 missionId: 1
-                mainQuestion: 'Welcome to Room of Science Battle'
+                mainQuestion: "Welcome to Room of Science Battle"
                 docs:
-                  - '/images/science-battle.jpg'
+                  - "/images/science-battle.jpg"
                 questions:
                   - questionId: 1
-                    question: 'What is the evidence?'
+                    question: "What is the evidence?"
                     answers:
                       - answerId: 1
-                        answer: 'Evidence A'
+                        answer: "Evidence A"
                       - answerId: 2
-                        answer: 'Evidence B'
+                        answer: "Evidence B"
+
+  # ──────────────────────────────────────────────
+  # WebSockets
+  # ──────────────────────────────────────────────
+  /ws:
+    get:
+      tags:
+        - WebSockets
+      summary: WebSocket handshake endpoint
+      description: |
+        Endpoint for establishing a WebSocket connection using STOMP.
+        Supports SockJS fallback.
+        Requires a JWT in the `Authorization` header of the STOMP `CONNECT` frame.
+      responses:
+        '101':
+          description: Switching Protocols
 
 # ════════════════════════════════════════════════
 # Reusable Components
@@ -760,12 +920,12 @@ components:
         username:
           type: string
           description: Unique username for the account
-          example: 'nurse.jane'
+          example: "nurse.jane"
         password:
           type: string
           format: password
           description: Account password
-          example: 'SecureP@ss123'
+          example: "SecureP@ss123"
 
     AuthResponse:
       type: object
@@ -774,7 +934,7 @@ components:
         token:
           type: string
           description: JWT Bearer token
-          example: 'eyJhbGciOiJIUzI1NiJ9...'
+          example: "eyJhbGciOiJIUzI1NiJ9..."
         isAdmin:
           type: boolean
           description: Whether the authenticated user has the ADMIN role
@@ -805,10 +965,10 @@ components:
           example: 1
         mission:
           type: string
-          example: 'Wound Care for Pressure Ulcers'
+          example: "Wound Care for Pressure Ulcers"
         password:
           type: string
-          example: 'abcd'
+          example: "abcd"
 
     # ── Landing Page ────────────────────────────
     LandingPageResponse:
@@ -833,7 +993,7 @@ components:
           example: 1
         missionName:
           type: string
-          example: 'Wound Care for Pressure Ulcers'
+          example: "Wound Care for Pressure Ulcers"
 
     # ── Entering Mission ────────────────────────
     EnteringGameRequest:
@@ -845,7 +1005,7 @@ components:
       properties:
         password:
           type: string
-          example: 'GameRoom42'
+          example: "GameRoom42"
         gameId:
           type: integer
           format: int64
@@ -884,7 +1044,7 @@ components:
           example: 1
         question:
           type: string
-          example: 'What is the primary sign of a pressure ulcer?'
+          example: "What is the primary sign of a pressure ulcer?"
         answers:
           type: array
           items:
@@ -899,7 +1059,7 @@ components:
           example: 1
         answer:
           type: string
-          example: 'Redness'
+          example: "Redness"
 
     # ── Room of Knowledge ───────────────────────
     VerifyAnswerDto:
@@ -921,6 +1081,99 @@ components:
           type: integer
           format: int64
           example: 1
+
+    # ── Room of Analytics ───────────────────────
+    SubmissionDto:
+      type: object
+      description: Request to submit answers for Room of Analytics
+      required:
+        - roomId
+        - levelofEvidenceQuestionId
+        - levelofEvidencAnswer
+        - openQuestions
+      properties:
+        roomId:
+          type: integer
+          format: int64
+          description: ID of the room
+          example: 3
+        levelofEvidenceQuestionId:
+          type: integer
+          format: int64
+          description: ID of the Level of Evidence question
+          example: 10
+        levelofEvidencAnswer:
+          type: string
+          description: Answer for the Level of Evidence question
+          example: "Level I"
+        openQuestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpenQuestionSubmissionDto'
+
+    SubmissionResponseDto:
+      type: object
+      description: Response after submitting analytics answers
+      properties:
+        progress:
+          type: integer
+          description: Current progress of the room
+          example: 20
+        levelOfEvidenceApproved:
+          type: boolean
+          description: Whether the Level of Evidence answer was correct
+          example: true
+
+    AnalyticsSubmissionFeedbackDto:
+      type: object
+      description: Request to provide feedback on an analytics submission
+      required:
+        - roomId
+        - questions
+      properties:
+        roomId:
+          type: integer
+          format: int64
+          description: ID of the room
+          example: 3
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionFeedbackDto'
+
+    QuestionFeedbackDto:
+      type: object
+      description: Feedback for a single open question
+      required:
+        - questionId
+        - answer
+        - approved
+      properties:
+        questionId:
+          type: integer
+          format: int64
+          example: 1
+        answer:
+          type: string
+          example: "Increased heart rate"
+        approved:
+          type: boolean
+          example: true
+
+    OpenQuestionSubmissionDto:
+      type: object
+      description: A single open question submission
+      required:
+        - questionId
+        - answer
+      properties:
+        questionId:
+          type: integer
+          format: int64
+          example: 1
+        answer:
+          type: string
+          example: "Increased heart rate"
 
     # ── Room of Abstracts ───────────────────────
     RoomTimeResponse:
@@ -988,7 +1241,7 @@ components:
           type: string
           nullable: true
           description: The room key if progress is 100%, null otherwise
-          example: 'SECRET-KEY'
+          example: "SECRET-KEY"
 
     # ── Proceed to Next Room ────────────────────
     ProceedDto:
@@ -1016,7 +1269,7 @@ components:
           example: 1
         mainQuestion:
           type: string
-          example: 'Welcome to Room of Abstracts'
+          example: "Welcome to Room of Abstracts"
         docs:
           type: array
           items:
@@ -1035,11 +1288,114 @@ components:
           example: 1
         question:
           type: string
-          example: 'What is the main topic?'
+          example: "What is the main topic?"
         answers:
           type: array
           items:
             $ref: '#/components/schemas/AnswerDto'
+
+    # ── WebSocket Notifications ─────────────────
+    AdminNotificationDto:
+      type: object
+      description: Real-time notification for admins when a room of analytics is submitted
+      required:
+        - missionId
+        - missionName
+        - roomId
+        - roomName
+        - submittedAt
+        - answers
+      properties:
+        missionId:
+          type: integer
+          format: int64
+          example: 1
+        missionName:
+          type: string
+          example: "Wound Care for Pressure Ulcers"
+        roomId:
+          type: integer
+          format: int64
+          example: 3
+        roomName:
+          type: string
+          example: "Room of Analytics"
+        submittedAt:
+          type: string
+          format: date-time
+          example: "2026-03-24T10:00:00Z"
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerDetailDto'
+
+    AnswerDetailDto:
+      type: object
+      description: Detailed answer for an open question
+      required:
+        - questionId
+        - questionText
+        - answerText
+      properties:
+        questionId:
+          type: integer
+          format: int64
+          example: 1
+        questionText:
+          type: string
+          example: "What is the primary sign of a pressure ulcer?"
+        answerText:
+          type: string
+          example: "Persistent redness of the skin"
+
+    AnalyticsFeedbackDto:
+      type: object
+      description: Real-time feedback sent to a team after admin reviews their analytics submission
+      required:
+        - roomId
+        - missionName
+        - progress
+        - feedbackAt
+        - questions
+      properties:
+        roomId:
+          type: integer
+          format: int64
+          example: 3
+        missionName:
+          type: string
+          description: Name of the mission
+          example: "mission1"
+        progress:
+          type: integer
+          example: 60
+        feedbackAt:
+          type: string
+          format: date-time
+          example: "2026-05-01T14:30:00Z"
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionFeedbackResultDto'
+
+    QuestionFeedbackResultDto:
+      type: object
+      description: Result for a single question after admin review
+      required:
+        - questionId
+        - approved
+      properties:
+        questionId:
+          type: integer
+          format: int64
+          example: 1
+        approved:
+          type: boolean
+          example: true
+        answerText:
+          type: string
+          description: The accepted answer text; null when rejected
+          example: "Increased heart rate"
 
     # ── Error ───────────────────────────────────
     ErrorResponse:
@@ -1048,16 +1404,16 @@ components:
         timestamp:
           type: string
           format: date-time
-          example: '2026-03-24T10:00:00Z'
+          example: "2026-03-24T10:00:00Z"
         status:
           type: integer
           example: 400
         error:
           type: string
-          example: 'Bad Request'
+          example: "Bad Request"
         message:
           type: string
-          example: 'Validation failed'
+          example: "Validation failed"
         path:
           type: string
-          example: '/api/games'
+          example: "/api/games"
