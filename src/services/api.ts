@@ -19,12 +19,28 @@ export interface AnalyticsSubmissionFeedbackDto {
   questions: QuestionFeedbackDto[]
 }
 
+export interface MissionPasswordDto {
+  missionName: string
+  password: string
+}
+
+export interface SessionPasswordsDto {
+  gameId: number
+  missionPasswords: MissionPasswordDto[]
+}
+
 export const adminApi = {
   /**
    * Check if any administrator exists
    * Path: /api/admin/isThereAdmin
    */
   isThereAdmin: () => fetchApi<boolean>('/api/admin/isThereAdmin'),
+
+  /**
+   * Get passwords for all missions in the current session
+   * Path: /api/admin/dashboard/missions-passwords
+   */
+  getMissionsPasswords: () => fetchApi<SessionPasswordsDto>('/api/admin/dashboard/missions-passwords'),
 
   /**
    * Submit feedback for an analytics submission

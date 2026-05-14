@@ -21,7 +21,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import React from 'react'
 
 import { useAdminWebSocket, useNotification, type QuestionFeedback, getNotificationId } from '@/entities/notification'
-import { adminApi, gameApi, type GameResponseDto } from '@/services/api'
+import { adminApi, gameApi, type GameResponseDto, type SessionPasswordsDto } from '@/services/api'
 
 import {
   MOCK_ACTIVE_TEAMS,
@@ -52,6 +52,10 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [isCreatingGame, setIsCreatingGame] = useState(false)
   const [createGameError, setCreateGameError] = useState<string | null>(null)
   const [createGameResponse, setCreateGameResponse] = useState<GameResponseDto | null>(null)
+  const [isGameRunning, setIsGameRunning] = useState(false)
+  const [showPasswordsModal, setShowPasswordsModal] = useState(false)
+  const [isLoadingPasswords, setIsLoadingPasswords] = useState(false)
+  const [passwordsResponse, setPasswordsResponse] = useState<SessionPasswordsDto | null>(null)
   const alertedTeamsRef = useRef<Set<string>>(new Set())
 
   // WebSocket subscription for analytics submissions
@@ -72,6 +76,16 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
 
   // Countdown timer — ticks every second
   useEffect(() => {
+    const checkGameStatus = async () => {
+      try {
+        const running = await gameApi.landing()
+        setIsGameRunning(running)
+      } catch (error) {
+        console.error('Failed to check game status:', error)
+      }
+    }
+    checkGameStatus()
+
     const interval = setInterval(() => {
       setActiveTeams((prev) =>
         prev.map((team) => {
@@ -148,11 +162,19 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
     setTimeoutAlerts((prev) => prev.map((a) => (a.id === alertId ? { ...a, dismissed: true } : a)))
   }, [])
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setLastRefreshed(new Date())
     setActiveTeams(MOCK_ACTIVE_TEAMS)
     setTimeoutAlerts([])
     alertedTeamsRef.current.clear()
+
+    // Also refresh game status
+    try {
+      const running = await gameApi.landing()
+      setIsGameRunning(running)
+    } catch (error) {
+      console.error('Failed to check game status:', error)
+    }
   }
 
   const handleCloseNewGameModal = () => {
@@ -173,11 +195,27 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
       setCreateGameResponse(response)
       setLastRefreshed(new Date())
       setShowNewGameModal(true)
+      setIsGameRunning(true)
     } catch (error) {
       setCreateGameError(error instanceof Error ? error.message : 'Failed to create game.')
       setShowNewGameModal(true)
     } finally {
       setIsCreatingGame(false)
+    }
+  }
+
+  const handleShowPasswords = async () => {
+    if (!isGameRunning) return
+
+    setIsLoadingPasswords(true)
+    try {
+      const response = await adminApi.getMissionsPasswords()
+      setPasswordsResponse(response)
+      setShowPasswordsModal(true)
+    } catch (error) {
+      console.error('Failed to fetch mission passwords:', error)
+    } finally {
+      setIsLoadingPasswords(false)
     }
   }
 
@@ -307,6 +345,19 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                 <span className='hidden sm:inline text-sm'>
                   {isCreatingGame ? 'Creating...' : 'New Game'}
                 </span>
+              </button>
+              <button
+                onClick={handleShowPasswords}
+                disabled={!isGameRunning || isLoadingPasswords}
+                className='flex items-center gap-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 rounded-lg transition-colors disabled:opacity-50'
+                title='Show mission passwords'
+              >
+                {isLoadingPasswords ? (
+                  <span className='w-4 h-4 border-2 border-purple-500/30 border-t-purple-300 rounded-full animate-spin' />
+                ) : (
+                  <Eye className='w-4 h-4' />
+                )}
+                <span className='hidden sm:inline text-sm'>Show Passwords</span>
               </button>
               <button
                 onClick={onBack}
@@ -536,6 +587,67 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                       Done
                     </button>
                   </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showPasswordsModal && passwordsResponse && (
+            <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4'>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className='bg-[#0f2a2e] border border-purple-500/30 rounded-2xl p-6 w-full max-w-md relative'
+              >
+                <button
+                  onClick={() => setShowPasswordsModal(false)}
+                  className='absolute top-4 right-4 text-gray-500 hover:text-white'
+                >
+                  <X className='w-5 h-5' />
+                </button>
+
+                <div className='flex items-center gap-3 mb-5'>
+                  <div className='w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center'>
+                    <Shield className='w-5 h-5 text-purple-300' />
+                  </div>
+                  <div>
+                    <h3 className='text-white'>Mission Passwords</h3>
+                    <p className='text-purple-400 font-[JetBrains_Mono,monospace] text-[10px] tracking-wider'>
+                      GAME #{passwordsResponse.gameId} ACCESS
+                    </p>
+                  </div>
+                </div>
+
+                <div className='bg-white/5 border border-white/10 rounded-xl overflow-hidden'>
+                  <div className='px-4 py-2 border-b border-white/10 bg-white/5'>
+                    <span className='text-xs font-[JetBrains_Mono,monospace] text-gray-400'>
+                      TEAM PASSWORDS
+                    </span>
+                  </div>
+                  <div className='divide-y divide-white/5'>
+                    {passwordsResponse.missionPasswords.map((mp, idx) => (
+                      <div key={idx} className='px-4 py-3 flex items-center justify-between'>
+                        <div>
+                          <p className='text-white text-sm'>{mp.missionName}</p>
+                        </div>
+                        <code className='px-2 py-1 bg-purple-500/10 text-purple-400 rounded text-sm font-bold'>
+                          {mp.password}
+                        </code>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className='flex items-center justify-end pt-6'>
+                  <button
+                    onClick={() => setShowPasswordsModal(false)}
+                    className='px-6 py-2 bg-purple-500 hover:bg-purple-400 text-white rounded-lg transition-colors'
+                  >
+                    Close
+                  </button>
                 </div>
               </motion.div>
             </div>
