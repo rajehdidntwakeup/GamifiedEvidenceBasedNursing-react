@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Plus,
   X,
+  Power,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -53,6 +54,8 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [createGameError, setCreateGameError] = useState<string | null>(null)
   const [createGameResponse, setCreateGameResponse] = useState<GameResponseDto | null>(null)
   const [isGameRunning, setIsGameRunning] = useState(false)
+  const [isClosingGame, setIsClosingGame] = useState(false)
+  const [showCloseGameModal, setShowCloseGameModal] = useState(false)
   const [showPasswordsModal, setShowPasswordsModal] = useState(false)
   const [isLoadingPasswords, setIsLoadingPasswords] = useState(false)
   const [passwordsResponse, setPasswordsResponse] = useState<SessionPasswordsDto | null>(null)
@@ -219,6 +222,27 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
     }
   }
 
+  const handleCloseGameSession = async () => {
+    if (!isGameRunning) return
+    setShowCloseGameModal(true)
+  }
+
+  const confirmCloseGameSession = async () => {
+    setShowCloseGameModal(false)
+    setIsClosingGame(true)
+    try {
+      await adminApi.closeGameSession()
+      setIsGameRunning(false)
+      // Optionally refresh the dashboard or show a success message
+      handleRefresh()
+    } catch (error) {
+      console.error('Failed to close game session:', error)
+      alert('Failed to close game session. Please try again.')
+    } finally {
+      setIsClosingGame(false)
+    }
+  }
+
   const getRoomInfo = (roomId: number) => ROOMS[roomId] || ROOMS[0]
 
   const roomCounts = ROOMS.map((room) => ({
@@ -358,6 +382,19 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                   <Eye className='w-4 h-4' />
                 )}
                 <span className='hidden sm:inline text-sm'>Show Passwords</span>
+              </button>
+              <button
+                onClick={handleCloseGameSession}
+                disabled={!isGameRunning || isClosingGame}
+                className='flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 rounded-lg transition-colors disabled:opacity-50'
+                title='Close current game session'
+              >
+                {isClosingGame ? (
+                  <span className='w-4 h-4 border-2 border-red-500/30 border-t-red-300 rounded-full animate-spin' />
+                ) : (
+                  <Power className='w-4 h-4' />
+                )}
+                <span className='hidden sm:inline text-sm'>Close Game Session</span>
               </button>
               <button
                 onClick={onBack}
@@ -587,6 +624,61 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
                       Done
                     </button>
                   </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showCloseGameModal && (
+            <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4'>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className='bg-[#0f2a2e] border border-red-500/30 rounded-2xl p-6 w-full max-w-md relative'
+              >
+                <button
+                  onClick={() => setShowCloseGameModal(false)}
+                  className='absolute top-4 right-4 text-gray-500 hover:text-white transition-colors'
+                >
+                  <X className='w-5 h-5' />
+                </button>
+
+                <div className='flex items-center gap-3 mb-5'>
+                  <div className='w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center'>
+                    <AlertTriangle className='w-5 h-5 text-red-300' />
+                  </div>
+                  <div>
+                    <h3 className='text-white font-semibold'>Close Game Session?</h3>
+                    <p className='text-red-400 font-[JetBrains_Mono,monospace] text-[10px] tracking-wider uppercase'>
+                      Critical Action Required
+                    </p>
+                  </div>
+                </div>
+
+                <div className='bg-white/5 border border-white/10 rounded-xl p-4 mb-6'>
+                  <p className='text-gray-300 text-sm leading-relaxed'>
+                    Are you sure you want to end the current game session? This will immediately
+                    <span className='text-white font-medium'> disconnect all active teams</span> and
+                    finalize the results.
+                  </p>
+                </div>
+
+                <div className='flex gap-3'>
+                  <button
+                    onClick={() => setShowCloseGameModal(false)}
+                    className='flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg transition-colors border border-white/10 font-medium'
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmCloseGameSession}
+                    className='flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-400 text-white rounded-lg transition-colors font-medium shadow-lg shadow-red-500/20'
+                  >
+                    Close Session
+                  </button>
                 </div>
               </motion.div>
             </div>

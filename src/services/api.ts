@@ -51,6 +51,15 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify(request),
     }),
+
+  /**
+   * Close the current game session
+   * Path: /api/admin/dashboard/close-game-session
+   */
+  closeGameSession: () =>
+    fetchApi<void>('/api/admin/dashboard/close-game-session', {
+      method: 'POST',
+    }),
 }
 
 // ============== GAME API ==============
