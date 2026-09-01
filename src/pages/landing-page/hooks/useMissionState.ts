@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react'
 
 import { enteringMissionApi } from '@/services/api'
 import type { MissionApi } from '@/services/api'
+import { clearAnalyticsSessionStorage } from '@/pages/room-of-analytics/components/useRoomOfAnalytics'
 
 import { MISSIONS } from '../landing-page.data'
 import type { LandingMission } from '../landing-page.data'
@@ -236,6 +237,7 @@ export function useMissionState(): [MissionState, MissionActions] {
       sessionStorage.setItem(ACTIVE_GAME_ID_STORAGE_KEY, String(gameId))
       sessionStorage.setItem('activeTeamId', String(pendingMission.id))
       sessionStorage.setItem('activeRoomId', String(response.roomId))
+      clearAnalyticsSessionStorage()
       setActiveMission(pendingMission)
       setPendingMission(null)
       setMissionPassword('')

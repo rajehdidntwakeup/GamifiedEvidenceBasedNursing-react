@@ -23,6 +23,7 @@ import React from 'react'
 
 import { useAdminWebSocket, useNotification, type QuestionFeedback, getNotificationId } from '@/entities/notification'
 import { adminApi, gameApi, type GameResponseDto, type SessionPasswordsDto } from '@/services/api'
+import { ApiError } from '@/shared/api/base-client'
 
 import {
   MOCK_ACTIVE_TEAMS,
@@ -70,11 +71,30 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
     roomId: number,
     feedback: QuestionFeedback[],
   ) => {
-    await adminApi.submitFeedback({
-      roomId,
-      questions: feedback,
-    })
-    notificationDispatch({ type: 'REMOVE', payload: notificationId })
+    try {
+      if (roomId === 4) {
+        await adminApi.submitScienceBattleFeedback({
+          roomId,
+          questions: feedback,
+        })
+      } else {
+        await adminApi.submitFeedback({
+          roomId,
+          questions: feedback,
+        })
+      }
+      notificationDispatch({ type: 'REMOVE', payload: notificationId })
+    } catch (error) {
+      console.error('Failed to submit feedback:', error)
+      const isForbidden = (error instanceof ApiError && error.status === 403) ||
+        (error instanceof Error && (error.message.includes('403') || error.message.toLowerCase().includes('forbidden')))
+      if (isForbidden) {
+        alert('Access Forbidden (403): You do not have admin permissions or your session has expired. Please log in again.')
+      } else {
+        const message = error instanceof Error ? error.message : String(error)
+        alert(`Failed to submit feedback: ${message}`)
+      }
+    }
   }
 
   // Countdown timer — ticks every second
@@ -217,6 +237,14 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
       setShowPasswordsModal(true)
     } catch (error) {
       console.error('Failed to fetch mission passwords:', error)
+      const isForbidden = (error instanceof ApiError && error.status === 403) ||
+        (error instanceof Error && (error.message.includes('403') || error.message.toLowerCase().includes('forbidden')))
+      if (isForbidden) {
+        alert('Access Forbidden (403): You do not have admin permissions or your session has expired.')
+      } else {
+        const message = error instanceof Error ? error.message : String(error)
+        alert(`Failed to fetch mission passwords: ${message}`)
+      }
     } finally {
       setIsLoadingPasswords(false)
     }
@@ -237,7 +265,13 @@ export function AdminDashboard({ onBack }: AdminDashboardProps) {
       handleRefresh()
     } catch (error) {
       console.error('Failed to close game session:', error)
-      alert('Failed to close game session. Please try again.')
+      const isForbidden = (error instanceof ApiError && error.status === 403) ||
+        (error instanceof Error && (error.message.includes('403') || error.message.toLowerCase().includes('forbidden')))
+      if (isForbidden) {
+        alert('Access Forbidden (403): You do not have admin permissions or your session has expired.')
+      } else {
+        alert('Failed to close game session. Please try again.')
+      }
     } finally {
       setIsClosingGame(false)
     }

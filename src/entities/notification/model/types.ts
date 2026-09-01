@@ -33,6 +33,16 @@ export interface AnalyticsFeedbackDto {
   questions: QuestionFeedbackResultDto[]
 }
 
+export interface ScienceBattleFeedbackDto {
+  roomId: number
+  missionName: string
+  progress: number
+  feedbackAt: string
+  questions: QuestionFeedbackResultDto[]
+}
+
+export type PlayerRoomFeedbackDto = AnalyticsFeedbackDto | ScienceBattleFeedbackDto
+
 export function getNotificationId(n: AdminNotification): string {
   return `${n.missionId}-${n.roomId}-${n.submittedAt}`
 }

@@ -15,11 +15,8 @@ import { motion } from 'motion/react'
 import { useState } from 'react'
 
 import { useSession } from '@/entities/session'
-import m1_pdf from '@/shared/assets/analytics/mission1/1_Zhang_et_al_SystematicReview.pdf?url'
-import m2_pdf from '@/shared/assets/analytics/mission2/1_Effects_of_VR_Games_in_reducing_fall(2023).pdf?url'
-import m3_pdf from '@/shared/assets/analytics/mission3/1_Postoperative_Paintreatment_with_Dementia(2022).pdf?url'
-import m4_pdf from '@/shared/assets/analytics/mission4/1_Intervent_and_prevent_Malnutrition.pdf?url'
-import m5_pdf from '@/shared/assets/analytics/mission5/1_Urin_Sampling_is_associatet_with_reduced_CAUTI(2021).pdf?url'
+import { proceedApi } from '@/services/api'
+import { resolvePdfAsset } from '@/shared/lib/assets'
 
 import { LOE_OPTIONS, STUDIES_BY_MISSION, TOTAL_TIME } from './room-of-analytics.data'
 import type { RoomOfAnalyticsProps } from './room-of-analytics.data'
@@ -28,20 +25,6 @@ import { ResultsScreen } from './components/ResultsScreen'
 import { TimeExpiredScreen } from './components/TimeExpiredScreen'
 import { StudyModal } from './components/StudyModal'
 import { useRoomOfAnalytics } from './components/useRoomOfAnalytics'
-
-const analyticsPdfs: Record<string, string> = {
-  '1_Zhang_et_al_SystematicReview.pdf': m1_pdf,
-  '1_Effects_of_VR_Games_in_reducing_fall(2023).pdf': m2_pdf,
-  '1_Postoperative_Paintreatment_with_Dementia(2022).pdf': m3_pdf,
-  '1_Intervent_and_prevent_Malnutrition.pdf': m4_pdf,
-  '1_Urin_Sampling_is_associatet_with_reduced_CAUTI(2021).pdf': m5_pdf,
-}
-
-function getAnalyticsPdf(docPath: string): string | undefined {
-  if (!docPath) return undefined
-  const filename = docPath.split('/').pop()
-  return filename ? analyticsPdfs[filename] : undefined
-}
 
 export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAnalyticsProps) {
   const { user } = useSession()
@@ -72,11 +55,34 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
   } = useRoomOfAnalytics(mission, user?.token)
 
   const [viewingStudy, setViewingStudy] = useState<number | null>(null)
+  const [isProceeding, setIsProceeding] = useState(false)
+
+  const handleProceedToRoom4 = async () => {
+    if (!onProceedToRoom4 || isProceeding) return
+    setIsProceeding(true)
+    try {
+      const storedRoomId = sessionStorage.getItem('activeRoomId')
+      const roomId = storedRoomId ? Number(storedRoomId) : (roomData?.roomId ?? 3)
+
+      const response = await proceedApi.toScienceBattleRoom({ roomId })
+
+      if (response.questions) {
+        sessionStorage.setItem('roomOfScienceBattleData', JSON.stringify(response))
+      }
+      sessionStorage.setItem('activeRoomId', String(response.roomId))
+
+      onProceedToRoom4()
+    } catch (error) {
+      console.error('Failed to proceed to Room of Science Battle:', error)
+      alert('Failed to proceed to the next room. Please check your connection and try again.')
+    } finally {
+      setIsProceeding(false)
+    }
+  }
 
   const studies = STUDIES_BY_MISSION[mission.id] || STUDIES_BY_MISSION[1]
   const study = studies[0]
-  const pdfSrc =
-    roomData && roomData.docs.length > 0 ? getAnalyticsPdf(roomData.docs[0]) : undefined
+  const pdfSrc = resolvePdfAsset(roomData?.docs?.[0], mission.id)
 
   const minutes = Math.floor(timeLeft / 60)
   const seconds = timeLeft % 60
@@ -111,7 +117,7 @@ export function RoomOfAnalytics({ mission, onBack, onProceedToRoom4 }: RoomOfAna
         backendKey={backendKey}
         onBack={onBack}
         onRetry={handleRetry}
-        onProceedToRoom4={onProceedToRoom4}
+        onProceedToRoom4={onProceedToRoom4 ? handleProceedToRoom4 : undefined}
       />
     )
   }

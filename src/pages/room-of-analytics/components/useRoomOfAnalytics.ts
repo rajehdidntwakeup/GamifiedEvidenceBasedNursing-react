@@ -23,6 +23,19 @@ function loadStoredData(): StoredRoomOfAnalyticsData | null {
   }
 }
 
+export function clearAnalyticsSessionStorage() {
+  sessionStorage.removeItem('analyticsLockedFields')
+  sessionStorage.removeItem('analyticsRetryFeedback')
+  sessionStorage.removeItem('analyticsWaitingForFeedback')
+  sessionStorage.removeItem('analyticsMethodologyText')
+  sessionStorage.removeItem('analyticsResultsText')
+  sessionStorage.removeItem('analyticsSelectedLoe')
+  sessionStorage.removeItem('analyticsStrengthsText')
+  sessionStorage.removeItem('analyticsWeaknessText')
+  sessionStorage.removeItem('roomOfAnalyticsKey')
+  sessionStorage.removeItem('roomOfAnalyticsData')
+}
+
 interface LockedFields {
   methodology: boolean
   results: boolean
@@ -290,7 +303,7 @@ export function useRoomOfAnalytics(mission: Mission, userToken?: string) {
             ? {}
             : {
                 levelofEvidenceQuestionId: loeQuestionId,
-                levelofEvidencAnswer: loeAnswer,
+                levelofEvidenceAnswer: loeAnswer,
               }),
         })
         .then((response) => {
@@ -352,16 +365,7 @@ export function useRoomOfAnalytics(mission: Mission, userToken?: string) {
       strengths: false,
       weakness: false,
     })
-    sessionStorage.removeItem('analyticsLockedFields')
-    sessionStorage.removeItem('analyticsRetryFeedback')
-    sessionStorage.removeItem('analyticsWaitingForFeedback')
-    sessionStorage.removeItem('analyticsMethodologyText')
-    sessionStorage.removeItem('analyticsResultsText')
-    sessionStorage.removeItem('analyticsSelectedLoe')
-    sessionStorage.removeItem('analyticsStrengthsText')
-    sessionStorage.removeItem('analyticsWeaknessText')
-    sessionStorage.removeItem('roomOfAnalyticsKey')
-    sessionStorage.removeItem('roomOfAnalyticsData')
+    clearAnalyticsSessionStorage()
     setMethodologyText('')
     setResultsText('')
     setSelectedLoe('')

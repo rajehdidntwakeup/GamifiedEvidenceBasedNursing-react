@@ -14,10 +14,12 @@ export interface QuestionFeedbackDto {
   approved: boolean
 }
 
-export interface AnalyticsSubmissionFeedbackDto {
+export interface SubmissionFeedbackDto {
   roomId: number
   questions: QuestionFeedbackDto[]
 }
+
+export type AnalyticsSubmissionFeedbackDto = SubmissionFeedbackDto
 
 export interface MissionPasswordDto {
   missionName: string
@@ -46,8 +48,18 @@ export const adminApi = {
    * Submit feedback for an analytics submission
    * Path: /api/admin/submission/analytics
    */
-  submitFeedback: (request: AnalyticsSubmissionFeedbackDto) =>
+  submitFeedback: (request: SubmissionFeedbackDto) =>
     fetchApi<string>('/api/admin/submission/analytics', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
+
+  /**
+   * Submit feedback for a science battle submission
+   * Path: /api/admin/submission/sciencebattle
+   */
+  submitScienceBattleFeedback: (request: SubmissionFeedbackDto) =>
+    fetchApi<string>('/api/admin/submission/sciencebattle', {
       method: 'POST',
       body: JSON.stringify(request),
     }),
@@ -165,25 +177,29 @@ export interface OpenQuestionSubmissionDto {
   answer: string
 }
 
-export interface SubmissionDto {
+export interface AnalyticsSubmissionDto {
   roomId: number
   levelofEvidenceQuestionId?: number
-  levelofEvidencAnswer?: string
+  levelofEvidenceAnswer?: string
   openQuestions: OpenQuestionSubmissionDto[]
 }
 
-export interface SubmissionResponseDto {
+export type SubmissionDto = AnalyticsSubmissionDto
+
+export interface AnalyticsSubmissionResponseDto {
   progress: number
   levelOfEvidenceApproved: boolean
 }
+
+export type SubmissionResponseDto = AnalyticsSubmissionResponseDto
 
 export const roomOfAnalyticsApi = {
   /**
    * Submit answers for Room of Analytics
    * Path: /api/rooms/roomofanalytics/submit
    */
-  submit: (request: SubmissionDto) =>
-    fetchApi<SubmissionResponseDto>('/api/rooms/roomofanalytics/submit', {
+  submit: (request: AnalyticsSubmissionDto) =>
+    fetchApi<AnalyticsSubmissionResponseDto>('/api/rooms/roomofanalytics/submit', {
       method: 'POST',
       body: JSON.stringify(request),
     }),
@@ -198,6 +214,44 @@ export const roomOfAnalyticsApi = {
       missionId: String(missionId),
     }).toString()
     return fetchApi<ResultDto>(`/api/rooms/roomofanalytics/results?${query}`)
+  },
+}
+
+// ============== ROOM OF SCIENCE BATTLE API ==============
+
+export interface ScienceBattleSubmissionDto {
+  roomId: number
+  levelofEvidenceQuestionId?: number
+  levelofEvidenceAnswer?: string
+  openQuestions: OpenQuestionSubmissionDto[]
+}
+
+export interface ScienceBattleSubmissionResponseDto {
+  progress: number
+  levelOfEvidenceApproved: boolean
+}
+
+export const roomOfScienceBattleApi = {
+  /**
+   * Submit answers for Room of Science Battle
+   * Path: /api/rooms/roomofsciencebattle/submit
+   */
+  submit: (request: ScienceBattleSubmissionDto) =>
+    fetchApi<ScienceBattleSubmissionResponseDto>('/api/rooms/roomofsciencebattle/submit', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
+
+  /**
+   * Get results for Room of Science Battle
+   * Path: /api/rooms/roomofsciencebattle/results
+   */
+  getResults: (roomId: number, missionId: number) => {
+    const query = new URLSearchParams({
+      roomId: String(roomId),
+      missionId: String(missionId),
+    }).toString()
+    return fetchApi<ResultDto>(`/api/rooms/roomofsciencebattle/results?${query}`)
   },
 }
 
@@ -258,10 +312,10 @@ export const proceedApi = {
 
   /**
    * Proceed to the Room of Science Battle
-   * Path: /api/game/proceed/scienebattle
+   * Path: /api/game/proceed/sciencebattle
    */
   toScienceBattleRoom: (request: ProceedDto) =>
-    fetchApi<RoomResponseDto>('/api/game/proceed/scienebattle', {
+    fetchApi<RoomResponseDto>('/api/game/proceed/sciencebattle', {
       method: 'POST',
       body: JSON.stringify(request),
     }),

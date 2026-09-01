@@ -19,6 +19,16 @@ function clearToken(): void {
   window.sessionStorage.removeItem('token')
 }
 
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 /**
  * Generic fetch wrapper with error handling.
  * All paths should be absolute (starting with /) as they will be prepended with API_BASE_URL.
@@ -40,7 +50,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
 
   if (!response.ok) {
     const error = await response.text()
-    throw new Error(error || `HTTP ${response.status}`)
+    throw new ApiError(error || `HTTP ${response.status}`, response.status)
   }
 
   const contentType = response.headers.get('content-type') || ''

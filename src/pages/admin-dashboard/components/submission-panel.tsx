@@ -39,9 +39,20 @@ export function SubmissionPanel({ submission, notificationId, onSubmitFeedback }
     >
       <div className='flex justify-between items-start mb-3'>
         <div>
-          <h3 className='text-white font-bold'>{submission.missionName}</h3>
+          <div className='flex items-center gap-2 mb-1'>
+            <h3 className='text-white font-bold'>{submission.missionName}</h3>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                submission.roomId === 4
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  : 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+              }`}
+            >
+              {submission.roomName || (submission.roomId === 4 ? 'Room of Science Battle' : 'Room of Analytics')}
+            </span>
+          </div>
           <p className='text-gray-500 text-xs font-[JetBrains_Mono,monospace]'>
-            Mission #{submission.missionId} &middot; {submission.roomName}
+            Mission #{submission.missionId} &middot; Room #{submission.roomId}
           </p>
         </div>
         <time

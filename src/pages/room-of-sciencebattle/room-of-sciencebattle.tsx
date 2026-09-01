@@ -14,85 +14,77 @@ import {
   Lightbulb,
   Scale,
   ShieldCheck,
+  ShieldAlert,
   BarChart3,
   PenLine,
+  BookOpen,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { motion } from 'motion/react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
-import { roomTimeApi } from '@/services/api'
+import { useSession } from '@/entities/session'
+import { resolvePdfAsset } from '@/shared/lib/assets'
 
 import {
-  JUSTIFICATION_MIN_WORDS,
   LOE_OPTIONS,
   STUDY_PAIRS_BY_MISSION,
   TOTAL_TIME,
 } from './room-of-sciencebattle.data'
 import type { RoomOfSciencebattleProps, StudyCompact } from './room-of-sciencebattle.data'
+import { FeedbackOverlay } from './components/FeedbackOverlay'
+import { useRoomOfScienceBattle } from './components/useRoomOfScienceBattle'
 
 export function RoomOfSciencebattle({
   mission,
   onBack,
   onProceedToFinalStage,
 }: RoomOfSciencebattleProps) {
-  const [timeLeft, setTimeLeft] = useState(TOTAL_TIME)
-  const [timeExpired, setTimeExpired] = useState(false)
-  const [isComplete, setIsComplete] = useState(false)
+  const { user } = useSession()
+  const {
+    timeLeft,
+    timeExpired,
+    isComplete,
+    progress,
+    isWaitingForFeedback,
+    selectedLoEA,
+    setSelectedLoEA,
+    selectedLoEB,
+    setSelectedLoEB,
+    betterStudyChoice,
+    setBetterStudyChoice,
+    justificationText,
+    setJustificationText,
+    comparisonNotes,
+    setComparisonNotes,
+    studyBTitle,
+    setStudyBTitle,
+    studyBLink,
+    setStudyBLink,
+    lockedFields,
+    retryFeedback,
+    results,
+    backendKey,
+    previousKeys,
+    roomData,
+    handleSubmit,
+    handleRetry,
+  } = useRoomOfScienceBattle(mission, user?.token)
 
   // Viewing expanded study
   const [viewingStudy, setViewingStudy] = useState<'A' | 'B' | null>(null)
 
-  // Task states
-  const [selectedLoEA, setSelectedLoEA] = useState('')
-  const [selectedLoEB, setSelectedLoEB] = useState('')
-  const [betterStudyChoice, setBetterStudyChoice] = useState<'A' | 'B' | ''>('')
-  const [justificationText, setJustificationText] = useState('')
-  const [comparisonNotes, setComparisonNotes] = useState('')
-
-  const [results, setResults] = useState<{
-    loeACorrect: boolean
-    loeBCorrect: boolean
-    betterStudyCorrect: boolean
-    justificationOk: boolean
-    comparisonOk: boolean
-    overallScore: number
-    overallTotal: number
-  } | null>(null)
+  const isValidUrl = (url: string) => {
+    try {
+      const parsed = new URL(url)
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
 
   const pair = STUDY_PAIRS_BY_MISSION[mission.id] || STUDY_PAIRS_BY_MISSION[1]
-
-  // Timer
-  useEffect(() => {
-    if (isComplete || timeExpired) return
-
-    // Fetch the remaining time from server on mount
-    const storedRoomId = sessionStorage.getItem('activeRoomId')
-    const roomId = storedRoomId ? Number(storedRoomId) : 4
-    roomTimeApi
-      .getHowMuchTimeDoWeHave(roomId)
-      .then((serverTime) => {
-        const serverTimeInSeconds = serverTime.minutes * 60 + serverTime.seconds
-        if (serverTimeInSeconds > 0) {
-          setTimeLeft(serverTimeInSeconds)
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to fetch server time, using initial timer:', error)
-      })
-
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          setTimeExpired(true)
-          setIsComplete(true)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [isComplete, timeExpired])
+  const pdfSrc = resolvePdfAsset(roomData?.docs?.[0], mission.id)
 
   const minutes = Math.floor(timeLeft / 60)
   const seconds = timeLeft % 60
@@ -102,54 +94,15 @@ export function RoomOfSciencebattle({
 
   const wordCount = (text: string) => (text.trim() ? text.trim().split(/\s+/).length : 0)
 
-  const handleSubmit = () => {
-    const loeACorrect = selectedLoEA === pair.studyA.loe
-    const loeBCorrect = selectedLoEB === pair.studyB.loe
-    const betterStudyCorrect = betterStudyChoice === pair.betterStudy
-    const justificationOk = wordCount(justificationText) >= JUSTIFICATION_MIN_WORDS
-    const comparisonOk = wordCount(comparisonNotes) >= 20
-
-    const overallTotal = 5
-    let overallScore = 0
-    if (loeACorrect) overallScore++
-    if (loeBCorrect) overallScore++
-    if (betterStudyCorrect) overallScore++
-    if (justificationOk) overallScore++
-    if (comparisonOk) overallScore++
-
-    setResults({
-      loeACorrect,
-      loeBCorrect,
-      betterStudyCorrect,
-      justificationOk,
-      comparisonOk,
-      overallScore,
-      overallTotal,
-    })
-    setIsComplete(true)
-  }
-
-  const handleRetry = () => {
-    setTimeLeft(TOTAL_TIME)
-    setTimeExpired(false)
-    setIsComplete(false)
-    setResults(null)
-    setSelectedLoEA('')
-    setSelectedLoEB('')
-    setBetterStudyChoice('')
-    setJustificationText('')
-    setComparisonNotes('')
-  }
-
-  const passed = results ? results.overallScore >= 3 : false
+  const passed = results ? results.overallScore === 5 : false
   const percentage = results ? Math.round((results.overallScore / results.overallTotal) * 100) : 0
 
   const canSubmit =
-    selectedLoEA !== '' &&
-    selectedLoEB !== '' &&
-    betterStudyChoice !== '' &&
-    wordCount(justificationText) >= 20 &&
-    wordCount(comparisonNotes) >= 10
+    (lockedFields.loeA || selectedLoEA !== '') &&
+    (lockedFields.loeB || selectedLoEB !== '') &&
+    (lockedFields.betterStudy || betterStudyChoice !== '') &&
+    (lockedFields.justification || justificationText.trim() !== '') &&
+    (lockedFields.comparison || comparisonNotes.trim() !== '')
 
   // Render a study card
   const renderStudyCard = (study: StudyCompact, side: 'A' | 'B') => (
@@ -214,63 +167,67 @@ export function RoomOfSciencebattle({
           <X className='w-4 h-4 text-gray-700' />
         </button>
 
-        <div className='p-8'>
-          <div className='border-b-2 border-gray-800 pb-4 mb-6'>
-            <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 text-teal-700 text-xs mb-2'>
-              {studyModalData.label}
-            </div>
-            <p className='text-gray-500 text-xs tracking-wider uppercase mb-1'>
-              {studyModalData.journal} &bull; {studyModalData.year} &bull;{' '}
-              {studyModalData.studyDesign}
-            </p>
-            <h2 className='text-gray-900 text-lg' style={{ lineHeight: 1.4 }}>
-              {studyModalData.title}
-            </h2>
-            <p className='text-gray-600 text-sm mt-2'>{studyModalData.authors}</p>
-          </div>
-
-          {[
-            { key: 'background', label: 'Background' },
-            { key: 'objective', label: 'Objective' },
-            { key: 'methods', label: 'Methods' },
-            { key: 'results', label: 'Results' },
-            { key: 'conclusion', label: 'Conclusion' },
-          ].map((section) => (
-            <div key={section.key} className='mb-5'>
-              <h3 className='text-gray-800 text-sm tracking-wider uppercase mb-2'>
-                {section.label}
-              </h3>
-              <p className='text-gray-700 text-sm' style={{ lineHeight: 1.8 }}>
-                {studyModalData.sections[section.key as keyof typeof studyModalData.sections]}
+        {viewingStudy === 'A' && pdfSrc ? (
+          <iframe src={pdfSrc} title='Study A PDF' className='w-full h-[80vh]' />
+        ) : (
+          <div className='p-8'>
+            <div className='border-b-2 border-gray-800 pb-4 mb-6'>
+              <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 text-teal-700 text-xs mb-2'>
+                {studyModalData.label}
+              </div>
+              <p className='text-gray-500 text-xs tracking-wider uppercase mb-1'>
+                {studyModalData.journal} &bull; {studyModalData.year} &bull;{' '}
+                {studyModalData.studyDesign}
               </p>
+              <h2 className='text-gray-900 text-lg' style={{ lineHeight: 1.4 }}>
+                {studyModalData.title}
+              </h2>
+              <p className='text-gray-600 text-sm mt-2'>{studyModalData.authors}</p>
             </div>
-          ))}
 
-          {/* Quick reference: design details */}
-          <div className='mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200'>
-            <h4 className='text-gray-700 text-xs tracking-wider uppercase mb-3'>Quick Reference</h4>
-            <div className='grid grid-cols-3 gap-4 text-xs'>
-              <div>
-                <span className='text-gray-400 block'>Study Design</span>
-                <span className='text-gray-800'>{studyModalData.studyDesign}</span>
+            {[
+              { key: 'background', label: 'Background' },
+              { key: 'objective', label: 'Objective' },
+              { key: 'methods', label: 'Methods' },
+              { key: 'results', label: 'Results' },
+              { key: 'conclusion', label: 'Conclusion' },
+            ].map((section) => (
+              <div key={section.key} className='mb-5'>
+                <h3 className='text-gray-800 text-sm tracking-wider uppercase mb-2'>
+                  {section.label}
+                </h3>
+                <p className='text-gray-700 text-sm' style={{ lineHeight: 1.8 }}>
+                  {studyModalData.sections[section.key as keyof typeof studyModalData.sections]}
+                </p>
               </div>
-              <div>
-                <span className='text-gray-400 block'>Sample Size</span>
-                <span className='text-gray-800'>{studyModalData.sampleSize}</span>
+            ))}
+
+            {/* Quick reference: design details */}
+            <div className='mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200'>
+              <h4 className='text-gray-700 text-xs tracking-wider uppercase mb-3'>Quick Reference</h4>
+              <div className='grid grid-cols-3 gap-4 text-xs'>
+                <div>
+                  <span className='text-gray-400 block'>Study Design</span>
+                  <span className='text-gray-800'>{studyModalData.studyDesign}</span>
+                </div>
+                <div>
+                  <span className='text-gray-400 block'>Sample Size</span>
+                  <span className='text-gray-800'>{studyModalData.sampleSize}</span>
+                </div>
+                <div>
+                  <span className='text-gray-400 block'>Level of Evidence</span>
+                  <span className='text-gray-800'>{studyModalData.loe}</span>
+                </div>
               </div>
-              <div>
-                <span className='text-gray-400 block'>Level of Evidence</span>
-                <span className='text-gray-800'>{studyModalData.loe}</span>
-              </div>
+            </div>
+
+            <div className='mt-6 pt-4 border-t border-gray-200'>
+              <span className='text-gray-400 text-xs font-[JetBrains_Mono,monospace]'>
+                STUDY {viewingStudy} | COMPARE CAREFULLY WITH THE OTHER STUDY
+              </span>
             </div>
           </div>
-
-          <div className='mt-6 pt-4 border-t border-gray-200'>
-            <span className='text-gray-400 text-xs font-[JetBrains_Mono,monospace]'>
-              STUDY {viewingStudy} | COMPARE CAREFULLY WITH THE OTHER STUDY
-            </span>
-          </div>
-        </div>
+        )}
       </motion.div>
     </div>
   )
@@ -417,9 +374,7 @@ export function RoomOfSciencebattle({
                     )}
                     <span className='text-white text-sm'>Decision Justification</span>
                     <span className='text-gray-500 text-xs ml-auto font-[JetBrains_Mono,monospace]'>
-                      {results.justificationOk
-                        ? 'Sufficient detail'
-                        : `Min. ${JUSTIFICATION_MIN_WORDS} words required`}
+                      {results.justificationOk ? 'Approved' : 'Needs correction'}
                     </span>
                   </div>
                 </div>
@@ -434,7 +389,7 @@ export function RoomOfSciencebattle({
                     )}
                     <span className='text-white text-sm'>Methodological Comparison</span>
                     <span className='text-gray-500 text-xs ml-auto font-[JetBrains_Mono,monospace]'>
-                      {results.comparisonOk ? 'Sufficient detail' : 'Min. 20 words required'}
+                      {results.comparisonOk ? 'Approved' : 'Needs correction'}
                     </span>
                   </div>
                 </div>
@@ -514,18 +469,22 @@ export function RoomOfSciencebattle({
                       The final letters revealed! Your collection is complete.
                     </p>
                     <div className='flex items-center justify-center gap-3 flex-wrap'>
-                      {['E', 'C', 'F', 'O', 'L', 'R'].map((letter) => (
-                        <div
-                          key={`prev-${letter}`}
-                          className='w-11 h-14 bg-[#0a1f22]/60 border border-white/10 rounded-lg flex items-center justify-center opacity-40'
-                        >
-                          <span className='text-gray-500 text-lg font-[JetBrains_Mono,monospace]'>
-                            {letter}
-                          </span>
-                        </div>
-                      ))}
-                      <div className='w-px h-12 bg-teal-500/30 mx-1' />
-                      {['N', 'E'].map((letter, i) => (
+                      {previousKeys.flatMap((k) =>
+                        k.split('-').map((letter) => (
+                          <div
+                            key={`prev-${letter}-${k}`}
+                            className='w-11 h-14 bg-[#0a1f22]/60 border border-white/10 rounded-lg flex items-center justify-center opacity-40'
+                          >
+                            <span className='text-gray-500 text-lg font-[JetBrains_Mono,monospace]'>
+                              {letter.toUpperCase()}
+                            </span>
+                          </div>
+                        )),
+                      )}
+                      {previousKeys.length > 0 && (backendKey || 'N-E') && (
+                        <div className='w-px h-12 bg-teal-500/30 mx-1' />
+                      )}
+                      {(backendKey || 'N-E').split('-').map((letter, i) => (
                         <motion.div
                           key={`new-${letter}-${i}`}
                           initial={{ opacity: 0, scale: 0, rotateY: 180 }}
@@ -539,13 +498,16 @@ export function RoomOfSciencebattle({
                           className='w-16 h-20 bg-[#0a1f22] border-2 border-teal-500/60 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(20,184,166,0.2)]'
                         >
                           <span className='text-teal-400 text-3xl font-[JetBrains_Mono,monospace]'>
-                            {letter}
+                            {letter.toUpperCase()}
                           </span>
                         </motion.div>
                       ))}
                     </div>
                     <p className='text-gray-600 text-xs mt-4 font-[JetBrains_Mono,monospace]'>
-                      FRAGMENT 4 OF 4 // ALL LETTERS COLLECTED: E, C, F, O, L, R, N, E
+                      FRAGMENT 4 OF 4 // ALL LETTERS COLLECTED:{' '}
+                      {previousKeys.map((k) => k.replace('-', ', ')).join(', ')}
+                      {previousKeys.length > 0 ? ', ' : ''}
+                      {(backendKey || 'N-E').replace('-', ', ')}
                     </p>
                     <motion.div
                       initial={{ opacity: 0 }}
@@ -648,6 +610,8 @@ export function RoomOfSciencebattle({
     <div className='fixed inset-0 z-50 bg-[#0a1f22] overflow-y-auto font-[Inter,sans-serif]'>
       {studyModal}
 
+      {isWaitingForFeedback && <FeedbackOverlay progress={progress} />}
+
       {/* Grid overlay */}
       <div
         className='absolute inset-0 z-0 opacity-5'
@@ -736,14 +700,130 @@ export function RoomOfSciencebattle({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4, delay: 0.1 }}
               >
-                {renderStudyCard(pair.studyA, 'A')}
+                {pdfSrc ? (
+                  <div className='bg-[#faf9f6] rounded-2xl overflow-hidden border border-gray-200'>
+                    <div className='bg-gray-100 px-5 py-3 border-b border-gray-200 flex items-center justify-between'>
+                      <div className='flex items-center gap-2'>
+                        <FileText className='w-4 h-4 text-gray-500' />
+                        <p className='text-gray-500 text-xs tracking-wider uppercase'>{pair.studyA.label}</p>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={() => setViewingStudy('A')}
+                        className='text-xs text-teal-600 hover:text-teal-500 font-[JetBrains_Mono,monospace] cursor-pointer'
+                      >
+                        FULL SCREEN →
+                      </button>
+                    </div>
+                    <iframe src={pdfSrc} title='Study A PDF' className='w-full h-[50vh]' />
+                  </div>
+                ) : (
+                  renderStudyCard(pair.studyA, 'A')
+                )}
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4, delay: 0.2 }}
+                className='bg-[#faf9f6] rounded-2xl overflow-hidden'
               >
-                {renderStudyCard(pair.studyB, 'B')}
+                <div className='bg-gray-100 px-5 py-3 border-b border-gray-200 flex items-center justify-between'>
+                  <div className='flex items-center gap-2'>
+                    <BookOpen className='w-4 h-4 text-gray-500' />
+                    <p className='text-gray-500 text-xs tracking-wider uppercase'>
+                      Study B (Your Supporting Study)
+                    </p>
+                  </div>
+                  <span className='text-xs text-gray-400 font-[JetBrains_Mono,monospace]'>
+                    YOU CHOOSE
+                  </span>
+                </div>
+                <div className='p-5 space-y-4'>
+                  <p className='text-gray-600 text-xs' style={{ lineHeight: 1.6 }}>
+                    Find a peer-reviewed study that supports the same intervention as Study A (
+                    {pair.intervention}). Provide its title and a link (e.g., PubMed, DOI, or
+                    journal URL).
+                  </p>
+
+                  <div>
+                    <label
+                      htmlFor='studyBTitle'
+                      className='text-gray-700 text-xs tracking-wider uppercase mb-1 block'
+                    >
+                      Study Title
+                    </label>
+                    <input
+                      id='studyBTitle'
+                      type='text'
+                      value={studyBTitle}
+                      onChange={(e) => setStudyBTitle(e.target.value)}
+                      disabled={lockedFields.studyBTitle}
+                      placeholder='Full title of the supporting study...'
+                      className={`w-full rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                        lockedFields.studyBTitle
+                          ? 'bg-gray-100 border border-green-500/30 text-gray-500 cursor-not-allowed'
+                          : 'bg-white border border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-teal-500'
+                      }`}
+                    />
+                    <div className='flex items-center justify-between mt-1'>
+                      <span className='text-gray-400 text-xs'>
+                        {studyBTitle.trim().length} characters
+                      </span>
+                      <span
+                        className={`text-xs ${
+                          studyBTitle.trim().length >= 10 ? 'text-green-600' : 'text-gray-400'
+                        }`}
+                      >
+                        Min. 10 characters
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor='studyBLink'
+                      className='text-gray-700 text-xs tracking-wider uppercase mb-1 block'
+                    >
+                      Link to Study
+                    </label>
+                    <div className='relative'>
+                      <LinkIcon className='w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2' />
+                      <input
+                        id='studyBLink'
+                        type='url'
+                        value={studyBLink}
+                        onChange={(e) => setStudyBLink(e.target.value)}
+                        disabled={lockedFields.studyBLink}
+                        placeholder='https://pubmed.ncbi.nlm.nih.gov/...'
+                        className={`w-full rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none ${
+                          lockedFields.studyBLink
+                            ? 'bg-gray-100 border border-green-500/30 text-gray-500 cursor-not-allowed'
+                            : 'bg-white border border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-teal-500'
+                        }`}
+                      />
+                    </div>
+                    <div className='flex items-center justify-between mt-1'>
+                      <span className='text-gray-400 text-xs'>
+                        {studyBLink.trim() ? 'URL provided' : 'No URL yet'}
+                      </span>
+                      <span
+                        className={`text-xs ${
+                          isValidUrl(studyBLink) ? 'text-green-600' : 'text-gray-400'
+                        }`}
+                      >
+                        Must be a valid URL
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className='pt-2 border-t border-gray-200'>
+                    <p className='text-gray-500 text-xs' style={{ lineHeight: 1.6 }}>
+                      <span className='text-gray-700'>Tip:</span> Choose a study whose design or
+                      methods directly address Study A&apos;s limitations — that&apos;s what makes
+                      your evidence base stronger.
+                    </p>
+                  </div>
+                </div>
               </motion.div>
             </div>
 
@@ -754,6 +834,19 @@ export function RoomOfSciencebattle({
               transition={{ duration: 0.4, delay: 0.3 }}
               className='space-y-6 max-w-4xl mx-auto'
             >
+              {retryFeedback && (
+                <div className='bg-orange-500/10 border border-orange-500/30 rounded-xl p-4'>
+                  <div className='flex items-center gap-2 mb-1'>
+                    <ShieldAlert className='w-4 h-4 text-orange-400 shrink-0' />
+                    <span className='text-orange-400 text-sm font-medium'>Feedback Received</span>
+                  </div>
+                  <p className='text-gray-400 text-xs leading-relaxed'>
+                    Some answers were approved and locked. Rejected answers have been cleared —
+                    please correct them and submit again.
+                  </p>
+                </div>
+              )}
+
               {/* TASK 1: LoE for Study A */}
               <div className='bg-white/5 border border-white/10 rounded-2xl overflow-hidden'>
                 <div className='px-5 py-4 border-b border-white/10 flex items-center gap-3'>
@@ -766,12 +859,30 @@ export function RoomOfSciencebattle({
                       Classify the previously reviewed study on the evidence pyramid
                     </p>
                   </div>
+                  {retryFeedback && (
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                        retryFeedback.loeAOk
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                      }`}
+                    >
+                      {retryFeedback.loeAOk ? 'Approved' : 'Needs correction'}
+                    </span>
+                  )}
                 </div>
                 <div className='p-5'>
                   <select
                     value={selectedLoEA}
                     onChange={(e) => setSelectedLoEA(e.target.value)}
-                    className='w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-teal-500 focus:outline-none text-sm appearance-none cursor-pointer'
+                    disabled={lockedFields.loeA}
+                    className={`w-full rounded-lg px-4 py-3 text-white focus:outline-none text-sm appearance-none cursor-pointer ${
+                      lockedFields.loeA
+                        ? 'bg-white/5 border border-green-500/30 opacity-60 cursor-not-allowed'
+                        : retryFeedback && !retryFeedback.loeAOk
+                          ? 'bg-white/5 border border-orange-500/30 focus:border-orange-500'
+                          : 'bg-white/5 border border-white/10 focus:border-teal-500'
+                    }`}
                     style={{
                       backgroundImage:
                         "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
@@ -800,12 +911,30 @@ export function RoomOfSciencebattle({
                       Classify the new supporting study on the evidence pyramid
                     </p>
                   </div>
+                  {retryFeedback && (
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                        retryFeedback.loeBOk
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                      }`}
+                    >
+                      {retryFeedback.loeBOk ? 'Approved' : 'Needs correction'}
+                    </span>
+                  )}
                 </div>
                 <div className='p-5'>
                   <select
                     value={selectedLoEB}
                     onChange={(e) => setSelectedLoEB(e.target.value)}
-                    className='w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-teal-500 focus:outline-none text-sm appearance-none cursor-pointer'
+                    disabled={lockedFields.loeB}
+                    className={`w-full rounded-lg px-4 py-3 text-white focus:outline-none text-sm appearance-none cursor-pointer ${
+                      lockedFields.loeB
+                        ? 'bg-white/5 border border-green-500/30 opacity-60 cursor-not-allowed'
+                        : retryFeedback && !retryFeedback.loeBOk
+                          ? 'bg-white/5 border border-orange-500/30 focus:border-orange-500'
+                          : 'bg-white/5 border border-white/10 focus:border-teal-500'
+                    }`}
                     style={{
                       backgroundImage:
                         "url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
@@ -834,15 +963,36 @@ export function RoomOfSciencebattle({
                       Which study provides the better evidence for the intervention?
                     </p>
                   </div>
+                  {retryFeedback && (
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                        retryFeedback.betterStudyOk
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                      }`}
+                    >
+                      {retryFeedback.betterStudyOk ? 'Approved' : 'Needs correction'}
+                    </span>
+                  )}
                 </div>
                 <div className='p-5'>
                   <div className='grid grid-cols-2 gap-4'>
                     <button
+                      type='button'
                       onClick={() => setBetterStudyChoice('A')}
+                      disabled={lockedFields.betterStudy}
                       className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        betterStudyChoice === 'A'
-                          ? 'border-teal-500 bg-teal-500/10'
-                          : 'border-white/10 bg-white/5 hover:border-white/20'
+                        lockedFields.betterStudy
+                          ? betterStudyChoice === 'A'
+                            ? 'border-green-500/50 bg-green-500/10 opacity-70 cursor-not-allowed'
+                            : 'border-white/5 bg-white/5 opacity-40 cursor-not-allowed'
+                          : retryFeedback && !retryFeedback.betterStudyOk
+                            ? betterStudyChoice === 'A'
+                              ? 'border-orange-500 bg-orange-500/10'
+                              : 'border-white/10 bg-white/5 hover:border-white/20'
+                            : betterStudyChoice === 'A'
+                              ? 'border-teal-500 bg-teal-500/10'
+                              : 'border-white/10 bg-white/5 hover:border-white/20'
                       }`}
                     >
                       <div className='flex items-center gap-2 mb-2'>
@@ -866,11 +1016,21 @@ export function RoomOfSciencebattle({
                       </p>
                     </button>
                     <button
+                      type='button'
                       onClick={() => setBetterStudyChoice('B')}
+                      disabled={lockedFields.betterStudy}
                       className={`p-4 rounded-xl border-2 transition-all text-left ${
-                        betterStudyChoice === 'B'
-                          ? 'border-teal-500 bg-teal-500/10'
-                          : 'border-white/10 bg-white/5 hover:border-white/20'
+                        lockedFields.betterStudy
+                          ? betterStudyChoice === 'B'
+                            ? 'border-green-500/50 bg-green-500/10 opacity-70 cursor-not-allowed'
+                            : 'border-white/5 bg-white/5 opacity-40 cursor-not-allowed'
+                          : retryFeedback && !retryFeedback.betterStudyOk
+                            ? betterStudyChoice === 'B'
+                              ? 'border-orange-500 bg-orange-500/10'
+                              : 'border-white/10 bg-white/5 hover:border-white/20'
+                            : betterStudyChoice === 'B'
+                              ? 'border-teal-500 bg-teal-500/10'
+                              : 'border-white/10 bg-white/5 hover:border-white/20'
                       }`}
                     >
                       <div className='flex items-center gap-2 mb-2'>
@@ -910,28 +1070,37 @@ export function RoomOfSciencebattle({
                       level of evidence, sample size, methodological rigor, and clinical outcomes.
                     </p>
                   </div>
+                  {retryFeedback && (
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                        retryFeedback.justificationOk
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                      }`}
+                    >
+                      {retryFeedback.justificationOk ? 'Approved' : 'Needs correction'}
+                    </span>
+                  )}
                 </div>
                 <div className='p-5'>
                   <textarea
                     value={justificationText}
                     onChange={(e) => setJustificationText(e.target.value)}
+                    disabled={lockedFields.justification}
                     placeholder='Justify your decision by comparing the study designs, levels of evidence, methodological strengths and weaknesses, sample sizes, statistical approaches, outcome significance, and generalizability of both studies...'
                     rows={6}
-                    className='w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none text-sm resize-y'
+                    className={`w-full rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:outline-none text-sm resize-y ${
+                      lockedFields.justification
+                        ? 'bg-white/5 border border-green-500/30 opacity-60 cursor-not-allowed'
+                        : retryFeedback && !retryFeedback.justificationOk
+                          ? 'bg-white/5 border border-orange-500/30 focus:border-orange-500'
+                          : 'bg-white/5 border border-white/10 focus:border-teal-500'
+                    }`}
                     style={{ lineHeight: 1.7 }}
                   />
                   <div className='flex items-center justify-between mt-2'>
                     <span className='text-gray-600 text-xs'>
                       {wordCount(justificationText)} words
-                    </span>
-                    <span
-                      className={`text-xs ${
-                        wordCount(justificationText) >= JUSTIFICATION_MIN_WORDS
-                          ? 'text-green-400'
-                          : 'text-gray-600'
-                      }`}
-                    >
-                      Min. {JUSTIFICATION_MIN_WORDS} words
                     </span>
                   </div>
                 </div>
@@ -950,26 +1119,37 @@ export function RoomOfSciencebattle({
                       randomization, blinding, sample selection, compliance, outcome measures).
                     </p>
                   </div>
+                  {retryFeedback && (
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                        retryFeedback.comparisonOk
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                      }`}
+                    >
+                      {retryFeedback.comparisonOk ? 'Approved' : 'Needs correction'}
+                    </span>
+                  )}
                 </div>
                 <div className='p-5'>
                   <textarea
                     value={comparisonNotes}
                     onChange={(e) => setComparisonNotes(e.target.value)}
+                    disabled={lockedFields.comparison}
                     placeholder='Compare the methodological approaches: How do the study designs differ? What are the key differences in randomization, blinding, sample selection, compliance monitoring, and outcome measurement?'
                     rows={5}
-                    className='w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none text-sm resize-y'
+                    className={`w-full rounded-lg px-3 py-2 text-white placeholder:text-gray-600 focus:outline-none text-sm resize-y ${
+                      lockedFields.comparison
+                        ? 'bg-white/5 border border-green-500/30 opacity-60 cursor-not-allowed'
+                        : retryFeedback && !retryFeedback.comparisonOk
+                          ? 'bg-white/5 border border-orange-500/30 focus:border-orange-500'
+                          : 'bg-white/5 border border-white/10 focus:border-teal-500'
+                    }`}
                     style={{ lineHeight: 1.7 }}
                   />
                   <div className='flex items-center justify-between mt-2'>
                     <span className='text-gray-600 text-xs'>
                       {wordCount(comparisonNotes)} words
-                    </span>
-                    <span
-                      className={`text-xs ${
-                        wordCount(comparisonNotes) >= 20 ? 'text-green-400' : 'text-gray-600'
-                      }`}
-                    >
-                      Min. 20 words
                     </span>
                   </div>
                 </div>

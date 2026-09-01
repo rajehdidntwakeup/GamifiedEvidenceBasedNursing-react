@@ -14,27 +14,10 @@ import { motion } from 'motion/react'
 import { useState, useEffect } from 'react'
 
 import { roomTimeApi } from '@/services/api'
-// Direct imports for all abstracts
-// When backend sends "abstracts/mission1/1_Abstract_Expertenkommentar.PNG" we extract
-// the filename "1_Abstract_Expertenkommentar.PNG" and match it here
-import m1_a1 from '@/shared/assets/abstracts/mission1/1_Abstract_Expertenkommentar.PNG?url'
-import m1_a2 from '@/shared/assets/abstracts/mission1/2_Abstract_Santamarie_et_al_RCT.PNG?url'
-import m1_a3 from '@/shared/assets/abstracts/mission1/3_Abstract_Zhang_et_al.PNG?url'
-import m2_a1 from '@/shared/assets/abstracts/mission2/1_Abstract_Effects_of_VR_Games.PNG?url'
-import m2_a2 from '@/shared/assets/abstracts/mission2/2_Abstract_Bedrails_and_Falls_in_Nursing_Homes.PNG?url'
-import m2_a3 from '@/shared/assets/abstracts/mission2/3_Abstract_Expertenkommentar.PNG?url'
-import m3_a1 from '@/shared/assets/abstracts/mission3/1_Abstract_PostoperstivePaintreatmentwithDementia.PNG?url'
-import m3_a2 from '@/shared/assets/abstracts/mission3/2_Abstract_Documentaton_for_Assessing_Pain_inPostoperative.PNG?url'
-import m3_a3 from '@/shared/assets/abstracts/mission3/3_Abstract_Nursing_Music_Protocol_and_Postoperative_Pain.PNG?url'
-import m4_a1 from '@/shared/assets/abstracts/mission4/1_Abstract_Ten_Cate_et_al_Systematic_Review.PNG?url'
-import m4_a2 from '@/shared/assets/abstracts/mission4/2_Abstract_weerasag_et_al_RCT.PNG?url'
-import m4_a3 from '@/shared/assets/abstracts/mission4/3_Abstract_Gefahr_einer_Mangelernährung_Querschnittstudie.PNG?url'
-import m5_a1 from '@/shared/assets/abstracts/mission5/1_Abstract_Urin_Sampling_is_associated_with_reduced_CAUTI_2021.PNG?url'
-import m5_a2 from '@/shared/assets/abstracts/mission5/2_Abstract_Implementation_of_a_multi_modal_inervention_CAUTI2024.PNG?url'
-import m5_a3 from '@/shared/assets/abstracts/mission5/3_Abstracxt_PRactice_REcommendation_CAUTI2023.PNG?url'
-
+import { resolveAbstractAsset } from '@/shared/lib/assets'
 import { roomOfAbstractsApi } from './api'
 import { TOTAL_TIME } from './room-of-abstracts.data'
+import { clearAnalyticsSessionStorage } from '@/pages/room-of-analytics/components/useRoomOfAnalytics'
 import type {
   RoomOfAbstractsProps,
   StoredRoomOfAbstractsData,
@@ -43,31 +26,8 @@ import type {
   CellOptions,
 } from './room-of-abstracts.data'
 
-// Map by filename only
-const abstracts: Record<string, string> = {
-  '1_Abstract_Expertenkommentar.PNG': m1_a1,
-  '2_Abstract_Santamarie_et_al_RCT.PNG': m1_a2,
-  '3_Abstract_Zhang_et_al.PNG': m1_a3,
-  '1_Abstract_Effects_of_VR_Games.PNG': m2_a1,
-  '2_Abstract_Bedrails_and_Falls_in_Nursing_Homes.PNG': m2_a2,
-  '3_Abstract_Expertenkommentar.PNG': m2_a3,
-  '1_Abstract_PostoperstivePaintreatmentwithDementia.PNG': m3_a1,
-  '2_Abstract_Documentaton_for_Assessing_Pain_inPostoperative.PNG': m3_a2,
-  '3_Abstract_Nursing_Music_Protocol_and_Postoperative_Pain.PNG': m3_a3,
-  '1_Abstract_Ten_Cate_et_al_Systematic_Review.PNG': m4_a1,
-  '2_Abstract_weerasag_et_al_RCT.PNG': m4_a2,
-  '3_Abstract_Gefahr_einer_Mangelernährung_Querschnittstudie.PNG': m4_a3,
-  '1_Abstract_Urin_Sampling_is_associated_with_reduced_CAUTI_2021.PNG': m5_a1,
-  '2_Abstract_Implementation_of_a_multi_modal_inervention_CAUTI2024.PNG': m5_a2,
-  '3_Abstracxt_PRactice_REcommendation_CAUTI2023.PNG': m5_a3,
-}
-
 function getAbstractImage(docPath: string): string | undefined {
-  if (!docPath) return undefined
-  // docPath is like "abstracts/mission1/1_Abstract_Expertenkommentar.PNG"
-  // Extract just the filename
-  const filename = docPath.split('/').pop()
-  return filename ? abstracts[filename] : undefined
+  return resolveAbstractAsset(docPath)
 }
 
 const STORAGE_KEY = 'roomOfAbstractsData'
@@ -353,6 +313,8 @@ export function RoomOfAbstracts({ onBack, onProceedToRoom3 }: RoomOfAbstractsPro
       const roomId = storedRoomId ? Number(storedRoomId) : 2
 
       const response = await roomOfAbstractsApi.proceed({ roomId })
+
+      clearAnalyticsSessionStorage()
 
       if (response.questions) {
         sessionStorage.setItem('roomOfAnalyticsData', JSON.stringify(response))

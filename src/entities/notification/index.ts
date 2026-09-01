@@ -3,6 +3,8 @@ export type {
   AdminNotification,
   AnswerDetail,
   AnalyticsFeedbackDto,
+  ScienceBattleFeedbackDto,
+  PlayerRoomFeedbackDto,
   QuestionFeedback,
   QuestionFeedbackResultDto,
 } from './model/types'
@@ -12,5 +14,7 @@ export {
   disconnectWebSocket,
   connectPlayerFeedbackWs,
   disconnectPlayerFeedbackWs,
+  connectScienceBattleFeedbackWs,
+  disconnectScienceBattleFeedbackWs,
 } from './api/websocket'
 export { useAdminWebSocket } from './model/use-admin-websocket'

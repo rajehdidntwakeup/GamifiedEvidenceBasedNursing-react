@@ -35,6 +35,8 @@ info:
     - **Topics:**
       - `/topic/analytics/submissions`: Admins can subscribe to this topic to receive real-time notifications when a team submits their answers in the Room of Analytics.
       - `/topic/mission/analytics/{mission-name}/feedback`: Teams can subscribe to this topic to receive real-time feedback when an admin approves or rejects their analytics answers. Replace `{mission-name}` with the team's actual mission name (e.g., "mission1").
+      - `/topic/sciencebattle/submissions`: Admins can subscribe to this topic to receive real-time notifications when a team submits their answers in the Room of Science Battle.
+      - `/topic/sciencebattle/feedback{mission-name}/feedback`: Teams can subscribe to this topic to receive real-time feedback when an admin approves or rejects their science battle answers. Replace `{mission-name}` with the team's actual mission name (e.g., "mission1").
   version: 1.0.0
   contact:
     name: GamifiedEvidenceBasedNursing Team
@@ -282,6 +284,10 @@ paths:
                     password: "efgh"
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /api/admin/dashboard/close-game-session:
     post:
@@ -298,6 +304,8 @@ paths:
           description: Game session closed successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -317,7 +325,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AnalyticsSubmissionFeedbackDto'
+              $ref: '#/components/schemas/SubmissionFeedbackDto'
             example:
               roomId: 3
               questions:
@@ -334,11 +342,54 @@ paths:
             text/plain:
               schema:
                 type: string
-              example: "Feedback processed successfully"
+              example: "Feedback submitted successfully"
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/submission/sciencebattle:
+    post:
+      tags:
+        - Admin Dashboard
+      summary: Submit feedback for a science battle submission
+      description: |
+        Allows an admin to provide feedback (approve/reject) for open questions in a team's science battle submission.
+      operationId: scienceBattleSubmissionFeedback
+      security:
+        - bearerAuth: []
+      requestBody:
+        description: Feedback for the science battle submission
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionFeedbackDto'
+            example:
+              roomId: 4
+              questions:
+                - questionId: 3
+                  answer: "Randomized controlled trial"
+                  approved: true
+                - questionId: 4
+                  answer: "Case study"
+                  approved: false
+      responses:
+        '200':
+          description: Feedback submitted successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Feedback submitted successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   # ──────────────────────────────────────────────
   # Games
@@ -351,8 +402,6 @@ paths:
       description: |
         Initialises a new game session.
       operationId: createGame
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: Game session created successfully
@@ -413,6 +462,8 @@ paths:
                     missionName: "Wound Care for Pressure Ulcers"
                   - missionId: 2
                     missionName: "Fall Prevention in Geriatrics"
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /api/game/landing/session-id:
     get:
@@ -801,11 +852,11 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SubmissionDto'
+              $ref: '#/components/schemas/AnalyticsSubmissionDto'
             example:
               roomId: 3
               levelofEvidenceQuestionId: 10
-              levelofEvidencAnswer: "Level I"
+              levelofEvidenceAnswer: "Level I"
               openQuestions:
                 - questionId: 1
                   answer: "Increased heart rate"
@@ -817,7 +868,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SubmissionResponseDto'
+                $ref: '#/components/schemas/AnalyticsSubmissionResponseDto'
               example:
                 progress: 20
                 levelOfEvidenceApproved: true
@@ -860,7 +911,80 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /api/game/proceed/scienebattle:
+  /api/rooms/roomofsciencebattle/submit:
+    post:
+      tags:
+        - Room of Science Battle
+      summary: Submit answers for Room of Science Battle
+      description: |
+        Teams submit their answers for open questions and the Level of Evidence question in the Room of Science Battle.
+      operationId: submitScienceBattle
+      requestBody:
+        description: Submission for Room of Science Battle
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScienceBattleSubmissionDto'
+            example:
+              roomId: 4
+              levelofEvidenceQuestionId: 10
+              levelofEvidenceAnswer: "Level I"
+              openQuestions:
+                - questionId: 3
+                  answer: "Randomized controlled trial"
+                - questionId: 4
+                  answer: "Case study"
+      responses:
+        '200':
+          description: Submission successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScienceBattleSubmissionResponseDto'
+              example:
+                progress: 25
+                levelOfEvidenceApproved: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/rooms/roomofsciencebattle/results:
+    get:
+      tags:
+        - Room of Science Battle
+      summary: Get results for Room of Science Battle
+      description: |
+        Returns the room results including progress and the room key.
+      operationId: getScienceBattleResults
+      parameters:
+        - name: roomId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 4
+        - name: missionId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 1
+      responses:
+        '200':
+          description: Results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultDto'
+              example:
+                progress: 100
+                key: "S-B"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/game/proceed/sciencebattle:
     post:
       tags:
         - Proceed to Next Room
@@ -954,6 +1078,13 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
 
+    Forbidden:
+      description: Access denied — admin role required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
   # ── Schemas ───────────────────────────────────
   schemas:
     # ── Admin Dashboard ─────────────────────────
@@ -1006,7 +1137,7 @@ components:
           type: string
           description: JWT Bearer token
           example: "eyJhbGciOiJIUzI1NiJ9..."
-        isAdmin:
+        admin:
           type: boolean
           description: Whether the authenticated user has the ADMIN role
           example: true
@@ -1040,10 +1171,6 @@ components:
         password:
           type: string
           example: "abcd"
-        isWinner:
-          type: boolean
-          description: Whether the team is a winner of the game session
-          example: false
 
     # ── Landing Page ────────────────────────────
     LandingPageResponse:
@@ -1158,13 +1285,13 @@ components:
           example: 1
 
     # ── Room of Analytics ───────────────────────
-    SubmissionDto:
+    AnalyticsSubmissionDto:
       type: object
       description: Request to submit answers for Room of Analytics
       required:
         - roomId
         - levelofEvidenceQuestionId
-        - levelofEvidencAnswer
+        - levelofEvidenceAnswer
         - openQuestions
       properties:
         roomId:
@@ -1177,7 +1304,7 @@ components:
           format: int64
           description: ID of the Level of Evidence question
           example: 10
-        levelofEvidencAnswer:
+        levelofEvidenceAnswer:
           type: string
           description: Answer for the Level of Evidence question
           example: "Level I"
@@ -1186,7 +1313,7 @@ components:
           items:
             $ref: '#/components/schemas/OpenQuestionSubmissionDto'
 
-    SubmissionResponseDto:
+    AnalyticsSubmissionResponseDto:
       type: object
       description: Response after submitting analytics answers
       properties:
@@ -1199,9 +1326,50 @@ components:
           description: Whether the Level of Evidence answer was correct
           example: true
 
-    AnalyticsSubmissionFeedbackDto:
+    ScienceBattleSubmissionDto:
       type: object
-      description: Request to provide feedback on an analytics submission
+      description: Request to submit answers in the Room of Science Battle
+      required:
+        - roomId
+        - levelofEvidenceQuestionId
+        - levelofEvidenceAnswer
+        - openQuestions
+      properties:
+        roomId:
+          type: integer
+          format: int64
+          description: ID of the room
+          example: 4
+        levelofEvidenceQuestionId:
+          type: integer
+          format: int64
+          description: ID of the Level of Evidence question
+          example: 10
+        levelofEvidenceAnswer:
+          type: string
+          description: Answer for the Level of Evidence question
+          example: "Level I"
+        openQuestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpenQuestionSubmissionDto'
+
+    ScienceBattleSubmissionResponseDto:
+      type: object
+      description: Response after submitting science battle answers
+      properties:
+        progress:
+          type: integer
+          description: Current progress of the room
+          example: 25
+        levelOfEvidenceApproved:
+          type: boolean
+          description: Whether the Level of Evidence answer was correct
+          example: true
+
+    SubmissionFeedbackDto:
+      type: object
+      description: Request to provide feedback on a submission
       required:
         - roomId
         - questions
@@ -1372,7 +1540,7 @@ components:
     # ── WebSocket Notifications ─────────────────
     AdminNotificationDto:
       type: object
-      description: Real-time notification for admins when a room of analytics is submitted
+      description: Real-time notification for admins when answers for a room (Room of Analytics or Room of Science Battle) are submitted
       required:
         - missionId
         - missionName
@@ -1444,6 +1612,36 @@ components:
         progress:
           type: integer
           example: 60
+        feedbackAt:
+          type: string
+          format: date-time
+          example: "2026-05-01T14:30:00Z"
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionFeedbackResultDto'
+
+    ScienceBattleFeedbackDto:
+      type: object
+      description: Real-time feedback sent to a team after admin reviews their science battle submission
+      required:
+        - roomId
+        - missionName
+        - progress
+        - feedbackAt
+        - questions
+      properties:
+        roomId:
+          type: integer
+          format: int64
+          example: 4
+        missionName:
+          type: string
+          description: Name of the mission
+          example: "mission1"
+        progress:
+          type: integer
+          example: 75
         feedbackAt:
           type: string
           format: date-time

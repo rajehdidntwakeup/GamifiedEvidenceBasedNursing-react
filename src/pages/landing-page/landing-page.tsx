@@ -13,6 +13,7 @@ import { MissionGrid } from './components/MissionGrid'
 import { RoomRouter } from './components/RoomRouter'
 import { useMissionState, ACTIVE_GAME_ID_STORAGE_KEY } from './hooks/useMissionState'
 import { ImageWithFallback } from './ImageWithFallback'
+import { clearAnalyticsSessionStorage } from '@/pages/room-of-analytics/components/useRoomOfAnalytics'
 
 export function LandingPage() {
   const [state, actions] = useMissionState()
@@ -47,6 +48,7 @@ export function LandingPage() {
 
   const handleExitMission = () => {
     sessionStorage.removeItem('activeMissionPassword')
+    clearAnalyticsSessionStorage()
     actions.setActiveMission(null)
     actions.setShowAdmin(false)
     actions.setShowMissions(true)

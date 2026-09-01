@@ -1,27 +1,30 @@
 /**
- * Room of Sciencebattle API - Feature-specific API functions and types
+ * Room of Science Battle API - Feature-specific API functions and types
  */
 
-import type { MissionApi } from '@/services/api'
-import { fetchApi } from '@/shared/api/base-client'
+import type {
+  ProceedDto,
+  RoomResponseDto,
+  ScienceBattleSubmissionDto,
+  ScienceBattleSubmissionResponseDto,
+  ResultDto,
+} from '@/services/api'
+import { proceedApi, roomOfScienceBattleApi } from '@/services/api'
 
-export interface RoomOfSciencebattleApiRequest {
-  gameId: number
-  mission: MissionApi
-  password?: string
+export type {
+  ScienceBattleSubmissionDto,
+  ScienceBattleSubmissionResponseDto,
+  ResultDto,
 }
 
-export interface RoomOfSciencebattleApi {
-  getPairs: (request: RoomOfSciencebattleApiRequest) => Promise<unknown[]>
-}
-
-export const roomOfSciencebattleApi: RoomOfSciencebattleApi = {
-  getPairs: ({ gameId, mission, password }: RoomOfSciencebattleApiRequest) => {
-    const query = new URLSearchParams({
-      gameId: String(gameId),
-      mission,
-      ...(password ? { password } : {}),
-    }).toString()
-    return fetchApi<unknown[]>(`/rooms/room-of-sciencebattle?${query}`)
+export const roomOfSciencebattleApi = {
+  submit: (request: ScienceBattleSubmissionDto): Promise<ScienceBattleSubmissionResponseDto> => {
+    return roomOfScienceBattleApi.submit(request)
+  },
+  getResults: (roomId: number, missionId: number): Promise<ResultDto> => {
+    return roomOfScienceBattleApi.getResults(roomId, missionId)
+  },
+  proceed: (request: ProceedDto): Promise<RoomResponseDto> => {
+    return proceedApi.toScienceBattleRoom(request)
   },
 }
